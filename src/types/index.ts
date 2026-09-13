@@ -54,6 +54,7 @@ export interface Model {
   display_name: string
   provider: string
   provider_id: string | null
+  providers?: { id: string; name: string } | null
   category: string
   supports_vision: boolean
   enabled: boolean

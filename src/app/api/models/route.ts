@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 export async function GET() {
   try {
@@ -10,9 +11,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: models, error } = await supabase
+    // Service role: models list is non-sensitive, and providers table
+    // has no public RLS policies (service-only by design)
+    const service = createServiceClient()
+    const { data: models, error } = await service
       .from('models')
-      .select('*')
+      .select('*, providers(id, name)')
       .eq('enabled', true)
       .order('sort_order', { ascending: true })
 

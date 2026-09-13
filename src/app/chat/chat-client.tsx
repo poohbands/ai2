@@ -404,7 +404,7 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
 
         <main className="flex-1 overflow-hidden relative">
           <ScrollArea className="h-full p-4">
-            <div ref={chatContainerRef} className="flex flex-col items-center max-w-3xl mx-auto w-full gap-4">
+            <div ref={chatContainerRef} className="flex flex-col items-stretch max-w-3xl mx-auto w-full gap-2 px-1">
               {messages.length === 0 && !currentConversationId && (
                 <div className="text-center py-12 text-muted-foreground">
                   <h3 className="text-lg font-medium mb-2">Welcome to Family AI</h3>

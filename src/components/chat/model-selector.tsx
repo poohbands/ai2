@@ -50,6 +50,13 @@ export function ModelSelector({ models, selectedModel, onSelect, disabled, class
 
   const selected = enabledModels.find((m) => m.id === selectedModel) || enabledModels[0]
 
+  // Hide internal gateway label ('kob'); show assigned provider name or category
+  const providerLabel = (m: Model) => m.providers?.name || (m.provider === 'kob' ? '' : m.provider)
+  const subLabel = (m: Model) => {
+    const p = providerLabel(m)
+    return p ? `${p} • ${m.category}` : m.category
+  }
+
   return (
     <div className={cn('relative', className)}>
       <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -110,7 +117,7 @@ export function ModelSelector({ models, selectedModel, onSelect, disabled, class
                     <Sparkles className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                       <span className="block truncate font-medium text-sm">{model.display_name}</span>
-                      <span className="block truncate text-xs text-muted-foreground">{model.provider} • {model.category}</span>
+                      <span className="block truncate text-xs text-muted-foreground">{subLabel(model)}</span>
                     </div>
                   </div>
                   {model.id === selectedModel && (
