@@ -8,7 +8,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdmin()
+    const adminProfile = await requireAdmin()
     const supabase = createServiceClient()
     const { id } = await params
 
@@ -32,6 +32,15 @@ export async function PATCH(
     if (validation.data.monthly_budget !== undefined) updates.monthly_budget = validation.data.monthly_budget
     if (validation.data.is_active !== undefined) updates.is_active = validation.data.is_active
     if (validation.data.role !== undefined) updates.role = validation.data.role
+    if (validation.data.is_approved !== undefined) {
+      updates.is_approved = validation.data.is_approved
+      if (validation.data.is_approved) {
+        // Approving also activates the account
+        updates.is_active = true
+        updates.approved_at = new Date().toISOString()
+        updates.approved_by = adminProfile.id
+      }
+    }
 
     const { error } = await supabase.from('profiles').update(updates).eq('id', id)
     if (error) {
@@ -43,6 +52,12 @@ export async function PATCH(
     console.error('Admin user update error:', error)
     if (error instanceof Error && error.message === 'Forbidden: Admin access required') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    if (error instanceof Error && error.message === 'Account pending approval') {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Profile not found')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

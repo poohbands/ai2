@@ -213,7 +213,14 @@ export function AdminClient() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Users</CardTitle>
+              <CardTitle>
+                Users
+                {users.some((u) => !u.is_approved) && (
+                  <span className="ml-2 text-sm font-normal text-amber-600">
+                    ({users.filter((u) => !u.is_approved).length} รออนุมัติ)
+                  </span>
+                )}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -235,7 +242,14 @@ export function AdminClient() {
                       <TableRow key={user.id}>
                         <TableCell>
                           <div>
-                            <p className="font-medium">{user.display_name || user.email}</p>
+                            <p className="font-medium">
+                              {user.display_name || user.email}
+                              {!user.is_approved && (
+                                <span className="ml-2 inline-block rounded-full bg-amber-100 text-amber-800 text-xs px-2 py-0.5">
+                                  รออนุมัติ
+                                </span>
+                              )}
+                            </p>
                             <p className="text-sm text-muted-foreground">{user.email}</p>
                           </div>
                         </TableCell>
@@ -284,6 +298,15 @@ export function AdminClient() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
+                            {!user.is_approved && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleUpdateUser(user.id, { is_approved: true } as Partial<AdminUser>)}
+                                disabled={actionLoading === user.id}
+                              >
+                                อนุมัติ
+                              </Button>
+                            )}
                             <AlertDialog open={deleteDialogOpen && userToDelete?.id === user.id} onOpenChange={setDeleteDialogOpen}>
                               <AlertDialogTrigger asChild>
                                 <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={actionLoading === user.id}>

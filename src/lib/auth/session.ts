@@ -42,7 +42,7 @@ export async function requireProfile() {
     throw new Error('Profile not found')
   }
   if (!profile.is_active) {
-    throw new Error('Account disabled')
+    throw new Error(profile.is_approved ? 'Account disabled' : 'Account pending approval')
   }
   return profile
 }

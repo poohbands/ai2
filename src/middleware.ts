@@ -47,11 +47,13 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    if (isAuthPath && user) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/chat'
-      return NextResponse.redirect(url)
-    }
+  // Skip when an error is shown (e.g. pending-approval users bounced
+  // from /chat) to avoid a /login <-> /chat redirect loop
+  if (isAuthPath && user && !request.nextUrl.searchParams.has('error')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/chat'
+    return NextResponse.redirect(url)
+  }
 
     if (request.nextUrl.pathname.startsWith('/admin') && user) {
       const { data: profile } = await supabase

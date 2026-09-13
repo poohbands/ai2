@@ -46,6 +46,7 @@ export const adminUserUpdateSchema = z.object({
   monthly_budget: z.number().min(0).max(10000).optional(),
   is_active: z.boolean().optional(),
   role: z.enum(['admin', 'user']).optional(),
+  is_approved: z.boolean().optional(),
 })
 
 export const loginSchema = z.object({

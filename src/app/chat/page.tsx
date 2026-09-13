@@ -19,7 +19,10 @@ export default async function ChatPage() {
     .single()
 
   if (!profile || !profile.is_active) {
-    redirect('/login?error=Account disabled')
+    const reason = profile && !profile.is_approved
+      ? 'Account pending admin approval'
+      : 'Account disabled'
+    redirect(`/login?error=${encodeURIComponent(reason)}`)
   }
 
   return <ChatClient userId={user.id} profile={profile} />

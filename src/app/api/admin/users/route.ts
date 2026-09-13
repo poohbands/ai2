@@ -12,7 +12,7 @@ export async function GET() {
 
     const { data: users, error } = await supabase
       .from('profiles')
-      .select('id, email, display_name, role, is_active, monthly_budget, usage_current_month, updated_at')
+      .select('id, email, display_name, role, is_active, is_approved, monthly_budget, usage_current_month, updated_at')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -53,6 +53,12 @@ export async function GET() {
     console.error('Admin users error:', error)
     if (error instanceof Error && error.message === 'Forbidden: Admin access required') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    if (error instanceof Error && error.message === 'Account pending approval') {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Profile not found')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

@@ -9,6 +9,9 @@ export interface Profile {
   monthly_budget: number
   usage_current_month: number
   is_active: boolean
+  is_approved: boolean
+  approved_at: string | null
+  approved_by: string | null
   created_at: string
   updated_at: string
 }
@@ -199,6 +202,7 @@ export interface AdminUser {
   display_name: string | null
   role: UserRole
   is_active: boolean
+  is_approved: boolean
   monthly_budget: number
   current_usage: number
   request_count: number

@@ -27,6 +27,9 @@ export async function GET() {
     if (err instanceof Error && err.message.startsWith('Forbidden')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
+    if (err instanceof Error && err.message === 'Account pending approval') {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
     if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Profile not found')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -73,6 +76,9 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     if (err instanceof Error && err.message.startsWith('Forbidden')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    if (err instanceof Error && err.message === 'Account pending approval') {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
     }
     if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Profile not found')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

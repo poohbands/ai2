@@ -115,7 +115,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!profile || !profile.is_active) {
-      return NextResponse.json({ error: 'Account disabled' }, { status: 403 })
+      const reason = profile && !profile.is_approved ? 'Account pending admin approval' : 'Account disabled'
+      return NextResponse.json({ error: reason }, { status: 403 })
     }
 
     const rateLimitResult = await rateLimitEndpoint(user.id, 'chat')

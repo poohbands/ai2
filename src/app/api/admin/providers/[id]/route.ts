@@ -54,6 +54,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (err instanceof Error && err.message.startsWith('Forbidden')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
+    if (err instanceof Error && err.message === 'Account pending approval') {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
     if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Profile not found')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -76,6 +79,9 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   } catch (err) {
     if (err instanceof Error && err.message.startsWith('Forbidden')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    if (err instanceof Error && err.message === 'Account pending approval') {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
     }
     if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Profile not found')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

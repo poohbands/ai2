@@ -39,6 +39,12 @@ export async function GET() {
     if (error instanceof Error && error.message === 'Forbidden: Admin access required') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
+    if (error instanceof Error && error.message === 'Account pending approval') {
+      return NextResponse.json({ error: 'Account pending approval' }, { status: 403 })
+    }
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Profile not found')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
