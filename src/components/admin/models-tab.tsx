@@ -31,7 +31,15 @@ export function ModelsTab() {
         fetch('/api/admin/models').then((r) => r.json()),
         fetch('/api/admin/providers').then((r) => r.json()),
       ])
-      setModels(m.models || [])
+      const sorted = [...(m.models || [])].sort((a: AdminModel, b: AdminModel) => {
+        // เปิดใช้ก่อน, แล้วเรียงตาม provider, แล้วตามลำดับเดิม
+        if (a.enabled !== b.enabled) return a.enabled ? -1 : 1
+        const pa = a.providers?.name || 'Default'
+        const pb = b.providers?.name || 'Default'
+        if (pa !== pb) return pa.localeCompare(pb)
+        return (a.sort_order ?? 0) - (b.sort_order ?? 0)
+      })
+      setModels(sorted)
       setProviders(p.providers || [])
       const n: Record<string, string> = {}
       for (const mod of m.models || []) n[mod.id] = mod.display_name
