@@ -151,7 +151,6 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
       if (error) throw error
-      console.log('[debug fetchMessages]', conversationId.slice(0, 8), 'rows:', ((data || []) as Message[]).map((r: Message) => `${r.role}:${String(r.id).slice(0, 4)}:${String(r.content).slice(0, 20)}`))
       if (data) setMessages(data)
       return data as Message[] | null
     } catch (error) {
@@ -733,10 +732,7 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
 
         <main className="flex-1 overflow-hidden relative">
           <ScrollArea className="h-full p-4">
-            <div className="text-center text-[11px] text-muted-foreground py-1">
-              debug: {messages.length} msgs [{messages.map((m) => `${m.role[0]}:${m.id.slice(0, 4)}`).join(' ')}] conv={currentConversationId ? currentConversationId.slice(0, 8) : 'none'}
-            </div>
-            <div ref={chatContainerRef} className="flex flex-col items-stretch max-w-3xl mx-auto w-full gap-2 px-1">
+            <div ref={chatContainerRef} className="flex flex-col items-stretch max-w-3xl mx-auto w-full gap-2 px-1 pt-6">
               {messages.length === 0 && !currentConversationId && !convLoading && !convError && (
                 <div className="text-center py-12 text-muted-foreground">
                   <h3 className="text-lg font-medium mb-2">Welcome to Family AI</h3>
