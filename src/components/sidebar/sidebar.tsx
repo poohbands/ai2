@@ -116,9 +116,19 @@ export function Sidebar({
       )}
       style={!isMobile && width ? { width } : undefined}
     >
+      <div className="flex items-center gap-2.5 p-3 border-b border-border">
+        <Avatar className="h-9 w-9 flex-shrink-0">
+          {user.avatar_url && <AvatarImage src={user.avatar_url} alt={user.display_name || user.email} />}
+          <AvatarFallback>{(user.display_name || user.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <p className="truncate text-sm font-semibold">{user.display_name || 'User'}</p>
+          <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+        </div>
+      </div>
       {!isMobile && (
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="font-semibold text-lg">Chats</h2>
+        <div className="flex items-center justify-between px-4 pt-3 pb-1">
+          <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Chats</h2>
         </div>
       )}
 
