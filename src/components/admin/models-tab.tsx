@@ -10,10 +10,11 @@ import { Loader2, Eye, Plus, Trash2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { AdminModel, ProviderItem } from '@/types'
+import { formatPerMillion } from '@/lib/ai/providers/kob'
 
 interface LiveProvider {
   provider: { id: string; name: string; type: string; base_url: string }
-  models: Array<{ id: string; supportsVision: boolean }>
+  models: Array<{ id: string; supportsVision: boolean; pricing: { input: number; output: number } | null }>
   error: string | null
 }
 
@@ -233,7 +234,14 @@ export function ModelsTab() {
                     return (
                       <div key={m.id} className="flex items-center gap-2 text-sm py-1 border-b border-border/50 last:border-0">
                         {m.supportsVision && <Eye className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
-                        <span className="font-mono text-xs flex-1 truncate">{m.id}</span>
+                        <span className="font-mono text-xs flex-1 truncate" title={m.id}>
+                          {m.id}
+                          {m.pricing && (
+                            <span className="text-muted-foreground font-sans">
+                              {' '}• {formatPerMillion(m.pricing.input)} in / {formatPerMillion(m.pricing.output)} out
+                            </span>
+                          )}
+                        </span>
                         {bound ? (
                           <span className={`text-xs ${bound.enabled ? 'text-green-600' : 'text-muted-foreground'}`}>
                             {bound.enabled ? 'ใช้งานอยู่' : 'เพิ่มแล้ว (ปิดอยู่)'}
@@ -255,6 +263,17 @@ export function ModelsTab() {
                         {bound && !bound.enabled && (
                           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => patch(bound.id, { enabled: true })}>
                             เปิดใช้
+                          </Button>
+                        )}
+                        {bound && m.pricing && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs text-muted-foreground"
+                            title="บันทึกราคานี้ลงฐานเพื่อคำนวณต้นทุน"
+                            onClick={() => patch(bound.id, { estimated_input_cost: m.pricing!.input, estimated_output_cost: m.pricing!.output })}
+                          >
+                            ใช้ราคานี้
                           </Button>
                         )}
                       </div>
@@ -330,11 +349,12 @@ export function ModelsTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ชื่อที่แสดง</TableHead>
-                <TableHead>Model ID</TableHead>
-                <TableHead>Provider</TableHead>
-                <TableHead>เปิดใช้</TableHead>
-                <TableHead className="text-right">ลบ</TableHead>
+              <TableHead>ชื่อที่แสดง</TableHead>
+              <TableHead>Model ID</TableHead>
+              <TableHead>Provider</TableHead>
+              <TableHead className="text-right">ต้นทุน/1M</TableHead>
+              <TableHead>เปิดใช้</TableHead>
+              <TableHead className="text-right">ลบ</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -369,6 +389,9 @@ export function ModelsTab() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                    {formatPerMillion(Number(m.estimated_input_cost))} / {formatPerMillion(Number(m.estimated_output_cost))}
                   </TableCell>
                   <TableCell>
                     <Switch checked={m.enabled} onCheckedChange={(v) => patch(m.id, { enabled: v })} />

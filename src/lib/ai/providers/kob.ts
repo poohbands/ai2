@@ -178,7 +178,7 @@ export class OpenAICompatibleProvider implements AIProvider {
     }
   }
 
-  async listModels(): Promise<Array<{ id: string; name: string; provider: string; supportsVision: boolean }>> {
+  async listModels(): Promise<Array<{ id: string; name: string; provider: string; supportsVision: boolean; pricing: { input: number; output: number } | null }>> {
     const response = await fetch(`${this.baseUrl}/models`, {
       headers: this.getHeaders(),
     }).catch((err) => this.handleError(err, 'list models'))
@@ -191,11 +191,12 @@ export class OpenAICompatibleProvider implements AIProvider {
       this.handleError(err, 'parse models response')
     )
 
-    return (data.data || []).map((model: { id: string; object: string }) => ({
+    return (data.data || []).map((model: { id: string; object: string; pricing?: Record<string, string> }) => ({
       id: model.id,
       name: model.id,
       provider: this.label,
       supportsVision: model.id.includes('vision') || model.id.includes('vl') || model.id.includes('gpt-4o') || model.id.includes('claude-3') || model.id.includes('gemini-1.5'),
+      pricing: parsePricing(model.pricing),
     }))
   }
 
@@ -243,6 +244,26 @@ export class OpenAICompatibleProvider implements AIProvider {
     if (!url && !b64) throw new AIProviderError('No image returned', 'NO_IMAGE', 502, this.label)
     return url || `data:image/png;base64,${b64}`
   }
+}
+
+/** Parse per-token pricing from provider metadata (OpenRouter style). Returns null when absent. */
+function parsePricing(pricing?: Record<string, string>): { input: number; output: number } | null {
+  if (!pricing) return null
+  const rawIn = pricing.prompt ?? pricing.input ?? pricing.input_tokens
+  const rawOut = pricing.completion ?? pricing.output ?? pricing.output_tokens
+  const input = Number(rawIn)
+  const output = Number(rawOut)
+  if (!Number.isFinite(input) || !Number.isFinite(output)) return null
+  return { input, output }
+}
+
+/** Format per-token cost as $/1M tokens, e.g. $0.55/1M. Exported for admin UI. */
+export function formatPerMillion(costPerToken: number): string {
+  const per1M = costPerToken * 1_000_000
+  if (per1M === 0) return 'free'
+  if (per1M < 0.01) return `$${per1M.toFixed(4)}/1M`
+  if (per1M < 10) return `$${per1M.toFixed(2)}/1M`
+  return `$${per1M.toFixed(1)}/1M`
 }
 
 /** Backwards-compatible Kob provider driven by env (used when model has no DB provider). */
