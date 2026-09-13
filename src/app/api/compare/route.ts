@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { getAIProvider } from '@/lib/ai/providers'
+import { getProviderForModel } from '@/lib/ai/provider-factory'
 import { compareRequestSchema } from '@/lib/validation/schemas'
 import { recordUsage } from '@/lib/usage/usage'
 import { calculateEstimatedCost } from '@/lib/usage/cost'
@@ -23,7 +23,6 @@ export async function POST(request: NextRequest) {
     const { data: models } = await service.from('models').select('*').in('id', parsed.data.models).eq('enabled', true)
     if (!models || models.length < 2) return NextResponse.json({ error: 'Select at least 2 enabled models' }, { status: 400 })
 
-    const provider = getAIProvider()
     const encoder = new TextEncoder()
     const readable = new ReadableStream({
       async start(controller) {
@@ -33,6 +32,7 @@ export async function POST(request: NextRequest) {
               let full = ''
               let inT = 0
               let outT = 0
+              const provider = await getProviderForModel(m)
               for await (const chunk of provider.streamChat({
                 model: m.provider_model_id,
                 messages: parsed.data.messages.map((msg) => ({ role: msg.role, content: msg.content })),

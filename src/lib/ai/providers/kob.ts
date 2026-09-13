@@ -1,98 +1,66 @@
 import {
   AIProvider,
-  AIMessage,
   ChatOptions,
   ChatResponse,
   StreamChunk,
   AIProviderError,
 } from './types'
 
-export class KobProvider implements AIProvider {
-  private baseUrl: string
-  private apiKey: string
+/**
+ * Generic OpenAI-compatible chat provider.
+ * Covers Kob AI, DeepSeek, OpenRouter and any /v1-style endpoint.
+ */
+export class OpenAICompatibleProvider implements AIProvider {
+  protected baseUrl: string
+  protected apiKey: string
+  protected label: string
+  protected extraHeaders: Record<string, string>
 
-  constructor() {
-    this.baseUrl = process.env.KOB_BASE_URL || 'https://api.kob.ai/v1'
-    this.apiKey = process.env.KOB_API_KEY || ''
+  constructor(baseUrl: string, apiKey: string, label = 'provider', extraHeaders: Record<string, string> = {}) {
+    this.baseUrl = baseUrl.replace(/\/$/, '')
+    this.apiKey = apiKey
+    this.label = label
+    this.extraHeaders = extraHeaders
 
     if (!this.apiKey) {
-      throw new AIProviderError(
-        'Kob AI API key not configured',
-        'MISSING_API_KEY',
-        500,
-        'kob'
-      )
+      throw new AIProviderError(`${label} API key not configured`, 'MISSING_API_KEY', 500, label)
     }
   }
 
-  private getHeaders(): Record<string, string> {
+  protected getHeaders(): Record<string, string> {
     return {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${this.apiKey}`,
+      ...this.extraHeaders,
     }
   }
 
-  private handleError(error: unknown, context: string): never {
+  protected handleError(error: unknown, context: string): never {
     if (error instanceof AIProviderError) throw error
 
     if (error instanceof Response) {
       switch (error.status) {
         case 401:
-          throw new AIProviderError(
-            'Invalid API key',
-            'INVALID_API_KEY',
-            401,
-            'kob'
-          )
+          throw new AIProviderError('Invalid API key', 'INVALID_API_KEY', 401, this.label)
         case 403:
-          throw new AIProviderError(
-            'Access forbidden',
-            'FORBIDDEN',
-            403,
-            'kob'
-          )
+          throw new AIProviderError('Access forbidden', 'FORBIDDEN', 403, this.label)
         case 429:
-          throw new AIProviderError(
-            'Rate limit exceeded',
-            'RATE_LIMIT',
-            429,
-            'kob'
-          )
+          throw new AIProviderError('Rate limit exceeded', 'RATE_LIMIT', 429, this.label)
         case 500:
         case 502:
         case 503:
-          throw new AIProviderError(
-            'AI provider temporarily unavailable',
-            'PROVIDER_UNAVAILABLE',
-            503,
-            'kob'
-          )
+          throw new AIProviderError('AI provider temporarily unavailable', 'PROVIDER_UNAVAILABLE', 503, this.label)
         default:
-          throw new AIProviderError(
-            `AI provider error: ${error.statusText}`,
-            'PROVIDER_ERROR',
-            error.status,
-            'kob'
-          )
+          throw new AIProviderError(`AI provider error: ${error.statusText}`, 'PROVIDER_ERROR', error.status, this.label)
       }
     }
 
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        throw new AIProviderError(
-          'Request cancelled',
-          'REQUEST_CANCELLED',
-          499,
-          'kob'
-        )
+        throw new AIProviderError('Request cancelled', 'REQUEST_CANCELLED', 499, this.label)
       }
       if (error.message.includes('timeout') || error.message.includes('ETIMEDOUT')) {
-        throw new AIProviderError(
-          'Request timeout',
-          'TIMEOUT',
-          504,
-          'kob'
-        )
+        throw new AIProviderError('Request timeout', 'TIMEOUT', 504, this.label)
       }
     }
 
@@ -100,7 +68,7 @@ export class KobProvider implements AIProvider {
       `Failed to ${context}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       'UNKNOWN_ERROR',
       500,
-      'kob'
+      this.label
     )
   }
 
@@ -124,7 +92,7 @@ export class KobProvider implements AIProvider {
 
     const reader = response.body?.getReader()
     if (!reader) {
-      throw new AIProviderError('No response stream', 'NO_STREAM', 500, 'kob')
+      throw new AIProviderError('No response stream', 'NO_STREAM', 500, this.label)
     }
 
     const decoder = new TextDecoder()
@@ -226,8 +194,64 @@ export class KobProvider implements AIProvider {
     return (data.data || []).map((model: { id: string; object: string }) => ({
       id: model.id,
       name: model.id,
-      provider: 'kob',
+      provider: this.label,
       supportsVision: model.id.includes('vision') || model.id.includes('vl') || model.id.includes('gpt-4o') || model.id.includes('claude-3') || model.id.includes('gemini-1.5'),
     }))
+  }
+
+  async createEmbedding(input: string, model: string): Promise<number[]> {
+    const response = await fetch(`${this.baseUrl}/embeddings`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ model, input: input.slice(0, 8000) }),
+    }).catch((err) => this.handleError(err, 'create embedding'))
+
+    if (!response.ok) {
+      await this.handleError(response, 'create embedding')
+    }
+
+    const data = await response.json().catch((err) =>
+      this.handleError(err, 'parse embedding response')
+    )
+    const vec = data.data?.[0]?.embedding
+    if (!vec) throw new AIProviderError('No embedding returned', 'NO_EMBEDDING', 502, this.label)
+    return vec as number[]
+  }
+
+  async createImage(prompt: string, model: string, size: string): Promise<string> {
+    const response = await fetch(`${this.baseUrl}/images/generations`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ model, prompt, size, n: 1 }),
+    }).catch((err) => this.handleError(err, 'create image'))
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '')
+      throw new AIProviderError(
+        `Image generation failed: ${response.status} ${text.slice(0, 200)}`,
+        'IMAGE_FAILED',
+        502,
+        this.label
+      )
+    }
+
+    const data = await response.json().catch((err) =>
+      this.handleError(err, 'parse image response')
+    )
+    const url = data.data?.[0]?.url
+    const b64 = data.data?.[0]?.b64_json
+    if (!url && !b64) throw new AIProviderError('No image returned', 'NO_IMAGE', 502, this.label)
+    return url || `data:image/png;base64,${b64}`
+  }
+}
+
+/** Backwards-compatible Kob provider driven by env (used when model has no DB provider). */
+export class KobProvider extends OpenAICompatibleProvider {
+  constructor() {
+    super(
+      process.env.KOB_BASE_URL || 'https://api.kob.ai/v1',
+      process.env.KOB_API_KEY || '',
+      'kob'
+    )
   }
 }

@@ -11,14 +11,19 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Users, Activity, DollarSign, TrendingUp, Settings, UserCheck, UserX, Shield, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react'
+import { Loader2, Users, Activity, DollarSign, TrendingUp, KeyRound, Boxes, UserCheck, UserX, Shield, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react'
 import { cn, formatCost, formatRelativeTime } from '@/lib/utils'
 import { AdminStats, AdminUser } from '@/types'
+import { ProvidersTab } from '@/components/admin/providers-tab'
+import { ModelsTab } from '@/components/admin/models-tab'
+
+type AdminTab = 'users' | 'models' | 'providers'
 
 export function AdminClient() {
   const router = useRouter()
   const supabase = createClient()
 
+  const [tab, setTab] = useState<AdminTab>('users')
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -124,13 +129,17 @@ export function AdminClient() {
             <Activity className="h-4 w-4" />
             Chat
           </Button>
-          <Button variant="default" className="w-full justify-start gap-2 bg-primary text-primary-foreground">
+          <Button variant={tab === 'users' ? 'default' : 'ghost'} className="w-full justify-start gap-2" onClick={() => setTab('users')}>
             <Users className="h-4 w-4" />
             Users
           </Button>
-          <Button variant="ghost" className="w-full justify-start gap-2">
-            <Settings className="h-4 w-4" />
-            Settings
+          <Button variant={tab === 'models' ? 'default' : 'ghost'} className="w-full justify-start gap-2" onClick={() => setTab('models')}>
+            <Boxes className="h-4 w-4" />
+            Models
+          </Button>
+          <Button variant={tab === 'providers' ? 'default' : 'ghost'} className="w-full justify-start gap-2" onClick={() => setTab('providers')}>
+            <KeyRound className="h-4 w-4" />
+            Providers
           </Button>
         </nav>
         <div className="p-4 border-t border-border">
@@ -145,9 +154,15 @@ export function AdminClient() {
         <div className="max-w-6xl mx-auto space-y-6">
           <div>
             <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-            <p className="text-muted-foreground">Manage users and monitor usage</p>
+            <p className="text-muted-foreground">
+              {tab === 'users' && 'Manage users and monitor usage'}
+              {tab === 'models' && 'Enable models and assign provider keys'}
+              {tab === 'providers' && 'Manage AI provider API keys'}
+            </p>
           </div>
 
+          {tab === 'users' && (
+          <>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -296,6 +311,11 @@ export function AdminClient() {
               </div>
             </CardContent>
           </Card>
+          </>
+          )}
+
+          {tab === 'models' && <ModelsTab />}
+          {tab === 'providers' && <ProvidersTab />}
         </div>
       </main>
     </div>

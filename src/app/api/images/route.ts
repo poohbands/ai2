@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { imageGenSchema } from '@/lib/validation/schemas'
 import { rateLimitEndpoint } from '@/lib/rate-limit/rate-limit'
 import { recordUsage } from '@/lib/usage/usage'
+import { getDefaultProvider } from '@/lib/ai/provider-factory'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -22,25 +23,18 @@ export async function POST(request: NextRequest) {
     const parsed = imageGenSchema.safeParse(body)
     if (!parsed.success) return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
 
-    const baseUrl = process.env.KOB_BASE_URL
-    const apiKey = process.env.KOB_API_KEY
-    if (!baseUrl || !apiKey) return NextResponse.json({ error: 'AI provider not configured' }, { status: 500 })
-
     const model = parsed.data.model || process.env.IMAGE_GEN_MODEL || 'flux-schnell'
-    const res = await fetch(`${baseUrl}/images/generations`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model, prompt: parsed.data.prompt, size: parsed.data.size, n: 1 }),
+    const { provider } = await getDefaultProvider().catch(() => {
+      throw new Error('No AI provider configured. Add a provider key in Admin → Providers.')
     })
-    if (!res.ok) {
-      const t = await res.text()
-      return NextResponse.json({ error: `Image generation failed: ${res.status} ${t.slice(0, 200)}` }, { status: 502 })
+    if (!('createImage' in provider) || typeof (provider as { createImage?: unknown }).createImage !== 'function') {
+      return NextResponse.json({ error: 'Provider does not support image generation' }, { status: 502 })
     }
-    const data = await res.json()
-    const imageUrl = data.data?.[0]?.url || data.data?.[0]?.b64_json
-      ? data.data[0].url || `data:image/png;base64,${data.data[0].b64_json}`
-      : null
-    if (!imageUrl) return NextResponse.json({ error: 'No image returned' }, { status: 502 })
+    const imageUrl = await (provider as unknown as { createImage: (p: string, m: string, s: string) => Promise<string> }).createImage(
+      parsed.data.prompt,
+      model,
+      parsed.data.size
+    )
 
     await service.from('generated_images').insert({
       user_id: user.id,

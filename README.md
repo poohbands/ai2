@@ -17,6 +17,13 @@ A privacy-focused AI chat application for family use, built with Next.js, Supaba
 - **Responsive UI** - Works on desktop, tablet, and mobile
 - **Dark/Light mode** - System-aware theme switching
 
+### Phase 2b (New)
+- **Multi-provider keys** - Admin → Providers: add DeepSeek / OpenRouter / Kob AI / custom
+  OpenAI-compatible keys (AES-256-GCM encrypted), test connection, rotate, enable/disable
+- **Admin tabs** - Users / Models (enable, rename, assign provider) / Providers
+- Chat, Research, Compare, Images and Embeddings resolve the provider per model
+  (falls back to `KOB_*` env when a model has no provider assigned)
+
 ### Phase 2 (New)
 - **Redis rate limiting** - Upstash Redis distributed limit with in-memory fallback (`/lib/rate-limit`)
 - **OCR** - Tesseract.js (eng+tha) for images, scanned-PDF detection + Mistral OCR optional (`/lib/files/ocr.ts`)
@@ -84,6 +91,8 @@ A privacy-focused AI chat application for family use, built with Next.js, Supaba
    EMBEDDING_MODEL=text-embedding-3-small
    EMBEDDING_DIMENSIONS=1536
    IMAGE_GEN_MODEL=flux-schnell
+   # Required to save provider keys via Admin → Providers (openssl rand -hex 32)
+   APP_ENCRYPTION_KEY=
    ```
 
 ### Supabase Setup
@@ -99,7 +108,9 @@ A privacy-focused AI chat application for family use, built with Next.js, Supaba
    # 5. 20240101000005_auth_trigger.sql
    # 6. 20240101000006_phase2_rag_memory.sql  (pgvector + KB/memory/prompts/images)
    # 7. 20240101000007_vector_rpc.sql         (match_kb_chunks / match_memories)
+   # 8. 20240101000008_providers.sql          (multi-provider API keys)
    ```
+   Or run `supabase/SETUP_ALL_IN_ONE.sql` once (idempotent, includes storage bucket).
 
 3. Create Storage bucket:
    - Go to Storage in Supabase dashboard
@@ -185,6 +196,7 @@ VALUES
 - `TAVILY_API_KEY` or `BRAVE_API_KEY` (optional, else DuckDuckGo fallback)
 - `MISTRAL_API_KEY` (optional, scanned-PDF OCR)
 - `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS`, `IMAGE_GEN_MODEL`, `OCR_PROVIDER`
+- `APP_ENCRYPTION_KEY` (required for Admin → Providers key storage)
 
 ## Architecture
 

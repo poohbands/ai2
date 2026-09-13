@@ -111,6 +111,28 @@ export const promptCreateSchema = z.object({
   isPublic: z.boolean().optional().default(false),
 })
 
+export const providerCreateSchema = z.object({
+  name: z.string().min(1).max(100),
+  type: z.enum(['openai-compatible', 'kob', 'deepseek', 'openrouter']),
+  base_url: z.string().url(),
+  api_key: z.string().min(8).max(500),
+})
+
+export const providerUpdateSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  base_url: z.string().url().optional(),
+  api_key: z.string().min(8).max(500).optional(),
+  enabled: z.boolean().optional(),
+})
+
+export const adminModelUpdateSchema = z.object({
+  display_name: z.string().min(1).max(200).optional(),
+  enabled: z.boolean().optional(),
+  provider_id: z.string().uuid().nullable().optional(),
+  estimated_input_cost: z.number().min(0).optional(),
+  estimated_output_cost: z.number().min(0).optional(),
+})
+
 export type ChatRequest = z.infer<typeof chatRequestSchema>
 export type ConversationCreate = z.infer<typeof conversationCreateSchema>
 export type ConversationUpdate = z.infer<typeof conversationUpdateSchema>

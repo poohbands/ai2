@@ -53,6 +53,7 @@ export interface Model {
   provider_model_id: string
   display_name: string
   provider: string
+  provider_id: string | null
   category: string
   supports_vision: boolean
   enabled: boolean
@@ -112,6 +113,32 @@ export interface MemoryItem {
   user_id: string
   content: string
   created_at: string
+}
+
+export interface ProviderItem {
+  id: string
+  name: string
+  type: 'openai-compatible' | 'kob' | 'deepseek' | 'openrouter'
+  base_url: string
+  key_hint: string
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface AdminModel {
+  id: string
+  provider_model_id: string
+  display_name: string
+  provider: string
+  provider_id: string | null
+  category: string
+  supports_vision: boolean
+  enabled: boolean
+  estimated_input_cost: number
+  estimated_output_cost: number
+  sort_order: number
+  providers?: { id: string; name: string; enabled: boolean } | null
 }
 
 export interface ChatRequest {

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { getAIProvider, AIProviderError } from '@/lib/ai/providers'
+import { AIProviderError } from '@/lib/ai/providers'
+import { getProviderForModel } from '@/lib/ai/provider-factory'
 import { chatRequestSchema } from '@/lib/validation/schemas'
 import { extractTextWithMeta, estimateTokens, truncateContext, chunkText } from '@/lib/files/extraction'
 import { recordUsage, checkBudget } from '@/lib/usage/usage'
@@ -261,7 +262,7 @@ export async function POST(request: NextRequest) {
       })),
     ]
 
-    const provider = getAIProvider()
+    const provider = await getProviderForModel(model)
 
     if (stream) {
       const encoder = new TextEncoder()
@@ -417,6 +418,9 @@ export async function POST(request: NextRequest) {
     console.error('Chat API error:', error)
     if (error instanceof AIProviderError) {
       return NextResponse.json({ error: error.message }, { status: error.statusCode || 500 })
+    }
+    if (error instanceof Error && error.message.startsWith('Model provider')) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

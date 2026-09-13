@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { getAIProvider } from '@/lib/ai/providers'
+import { getProviderForModel } from '@/lib/ai/provider-factory'
 import { webSearch, formatSearchContext } from '@/lib/search/search'
 import { researchRequestSchema } from '@/lib/validation/schemas'
 import { rateLimitEndpoint } from '@/lib/rate-limit/rate-limit'
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     const { data: model } = await serviceClient.from('models').select('*').eq('id', modelId).eq('enabled', true).single()
     if (!model) return NextResponse.json({ error: 'Model not available' }, { status: 400 })
 
-    const provider = getAIProvider()
+    const provider = await getProviderForModel(model)
 
     const runResearch = async function* () {
       const allSources: Array<{ title: string; url: string }> = []
