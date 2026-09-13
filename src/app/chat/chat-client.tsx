@@ -728,6 +728,17 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+          {profile.role === 'admin' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 ml-auto flex-shrink-0"
+              title="Admin Dashboard"
+              onClick={() => router.push('/admin')}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          )}
         </header>
 
         <main className="flex-1 overflow-hidden relative">
