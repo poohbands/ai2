@@ -19,7 +19,6 @@ export function ChatInput({ onSend, onStop, disabled, isGenerating, placeholder 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [text, setText] = useState('')
   const [files, setFiles] = useState<File[]>([])
-  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false)
   const [listening, setListening] = useState(false)
   const recognitionRef = useRef<unknown>(null)
 
@@ -70,7 +69,10 @@ export function ChatInput({ onSend, onStop, disabled, isGenerating, placeholder 
     } catch { /* ignore */ }
   }, [text])
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+    // noClick: only the attach button opens the picker (clicking textarea must not)
+    noClick: true,
+    noKeyboard: true,
     onDrop: (acceptedFiles) => {
       const newFiles = [...files, ...acceptedFiles].slice(0, maxFiles)
       setFiles(newFiles)
@@ -156,8 +158,9 @@ export function ChatInput({ onSend, onStop, disabled, isGenerating, placeholder 
             variant="ghost"
             size="icon"
             className="h-9 w-9 flex-shrink-0"
-            onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
+            onClick={open}
             disabled={disabled || files.length >= maxFiles}
+            title="แนบไฟล์"
           >
             <Paperclip className="h-4 w-4" />
           </Button>
