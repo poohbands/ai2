@@ -99,7 +99,7 @@ export function ChatInput({ onSend, onStop, disabled, isGenerating, placeholder 
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.repeat) {
         e.preventDefault()
         if (text.trim() || files.length > 0) {
           onSend(text.trim(), files)

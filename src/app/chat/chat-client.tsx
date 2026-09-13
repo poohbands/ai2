@@ -402,8 +402,14 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
     await fetchConversations()
   }
 
+  const sendingRef = useRef(false)
+
   const handleSend = async (text: string, files: File[]) => {
     if (!selectedModel) return
+    // Guard against double-submit (double-click / Enter repeat):
+    // concurrent sends race on shared state and orphan messages on screen
+    if (sendingRef.current || generating) return
+    sendingRef.current = true
 
     const controller = new AbortController()
     setAbortController(controller)
@@ -535,19 +541,16 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
             // Server already saved both messages; reload authoritative state
             const rows = await fetchMessages(conversationId || '')
             await fetchConversations()
-            // Safety net: if the user's question didn't come back, save it directly
-            // so it is never silently lost from screen or history
+            // If the user's question didn't come back (transient read), retry once.
+            // Never re-insert here: the server owns writes; re-inserting duplicates history.
             if (
               rows &&
               conversationId &&
               !rows.some((r) => r.role === 'user' && r.content === text)
             ) {
-              try {
-                await saveMessageRow(conversationId, 'user', text)
-                await fetchMessages(conversationId)
-              } catch (e) {
-                console.error('Safety-net save failed:', e)
-              }
+              console.warn('User message missing after refetch, retrying read once')
+              await new Promise((res) => setTimeout(res, 1000))
+              await fetchMessages(conversationId)
             }
           }
         }
@@ -566,6 +569,7 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
     } finally {
       setGenerating(false)
       setAbortController(null)
+      sendingRef.current = false
     }
   }
 
