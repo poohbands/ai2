@@ -10,7 +10,7 @@ import { calculateEstimatedCost } from '@/lib/usage/cost'
 import { rateLimitEndpoint } from '@/lib/rate-limit/rate-limit'
 import { getFileUrl } from '@/lib/files/files'
 import { webSearch, formatSearchContext } from '@/lib/search/search'
-import { retrieveContext } from '@/lib/rag/rag'
+import { retrieveContext, retrieveAcrossKbs } from '@/lib/rag/rag'
 import { createEmbedding } from '@/lib/rag/embeddings'
 import { Model } from '@/types'
 
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid request', details: validation.error.flatten() }, { status: 400 })
     }
 
-    const { conversationId, model: modelId, messages, attachments: attachmentIds, stream, webSearch: useWebSearch, kbId, systemPromptId } = validation.data
+    const { conversationId, model: modelId, messages, attachments: attachmentIds, stream, webSearch: useWebSearch, kbId, kbSearchAll, systemPromptId } = validation.data
 
     const model = await getModelInfo(serviceClient, modelId)
     if (!model) {
@@ -220,13 +220,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Phase 2: RAG knowledge base context
+    // Phase 2: RAG knowledge base context (single KB or all KBs)
     let kbContext = ''
     if (kbId) {
       try {
         kbContext = await retrieveContext(kbId, user.id, userMessageContent.slice(0, 500), 5)
       } catch (e) {
         console.error('[chat] rag failed', e)
+      }
+    } else if (kbSearchAll) {
+      try {
+        kbContext = await retrieveAcrossKbs(user.id, userMessageContent.slice(0, 500), 5)
+      } catch (e) {
+        console.error('[chat] rag-all failed', e)
       }
     }
 

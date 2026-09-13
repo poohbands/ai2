@@ -27,6 +27,22 @@ export async function ingestDocument(kbId: string, userId: string, fileName: str
   return doc
 }
 
+/** Keyword search across ALL of the user's KBs (used when no single KB selected). */
+export async function retrieveAcrossKbs(userId: string, query: string, topK = 5): Promise<string> {
+  const supabase = createServiceClient()
+  const firstWord = query.split(/\s+/)[0]?.slice(0, 40) || ''
+  if (!firstWord) return ''
+  const { data: chunks } = await supabase
+    .from('kb_chunks')
+    .select('content, kb_documents(file_name)')
+    .eq('user_id', userId)
+    .ilike('content', `%${firstWord}%`)
+    .limit(topK)
+  return ((chunks || []) as Array<{ content: string; kb_documents?: { file_name?: string } | null }>)
+    .map((c) => `${c.kb_documents?.file_name ? `[${c.kb_documents.file_name}] ` : ''}${c.content}`)
+    .join('\n\n---\n\n')
+}
+
 export async function retrieveContext(kbId: string, userId: string, query: string, topK = 5): Promise<string> {
   const supabase = createServiceClient()
   const embedding = await createEmbedding(query).catch(() => null)

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Profile, Conversation, Message, Model, Attachment } from '@/types'
+import { Profile, Conversation, Message, Model, Attachment, KnowledgeBase, PromptItem } from '@/types'
 import { Sidebar, MobileSidebarTrigger, MobileSidebarOverlay } from '@/components/sidebar/sidebar'
 import { ChatInput } from '@/components/chat/chat-input'
 import { ModelSelector } from '@/components/chat/model-selector'
@@ -11,6 +11,13 @@ import { MessageComponent } from '@/components/chat/message'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import {
   Send,
@@ -21,6 +28,13 @@ import {
   Settings,
   User,
   LogOut,
+  Globe,
+  Microscope,
+  BookOpen,
+  Columns2,
+  Image as ImageIcon,
+  ScrollText,
+  Check,
 } from 'lucide-react'
 
 interface ChatClientProps {
@@ -42,6 +56,15 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
   const [webSearch, setWebSearch] = useState(false)
+  const [modeResearch, setModeResearch] = useState(false)
+  const [modeKb, setModeKb] = useState(false)
+  const [modeCompare, setModeCompare] = useState(false)
+  const [modeImage, setModeImage] = useState(false)
+  const [kbList, setKbList] = useState<KnowledgeBase[]>([])
+  const [kbId, setKbId] = useState<string>('all')
+  const [prompts, setPrompts] = useState<PromptItem[]>([])
+  const [promptId, setPromptId] = useState<string>('')
+  const [compareModel, setCompareModel] = useState<string>('')
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     if (typeof window === 'undefined') return 300
     const saved = Number(window.localStorage.getItem('sidebar-width'))
@@ -128,9 +151,23 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
     }
   }
 
+  const fetchAssistData = async () => {
+    try {
+      const [kb, pr] = await Promise.all([
+        fetch('/api/kb').then((r) => r.json()).catch(() => ({})),
+        fetch('/api/prompts').then((r) => r.json()).catch(() => ({})),
+      ])
+      if (kb.knowledgeBases) setKbList(kb.knowledgeBases)
+      if (pr.prompts) setPrompts(pr.prompts)
+    } catch (error) {
+      console.error('Failed to fetch assist data:', error)
+    }
+  }
+
   useEffect(() => {
     fetchModels()
     fetchConversations()
+    fetchAssistData()
     setLoading(false)
   }, [userId])
 
@@ -204,6 +241,164 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
     }
   }
 
+  const ensureConversation = async (text: string): Promise<string> => {
+    if (currentConversationId) return currentConversationId
+    const { data, error } = await supabase
+      .from('conversations')
+      .insert({ user_id: userId, title: text.slice(0, 60) || 'New Chat', model: selectedModel })
+      .select()
+      .single()
+    if (error || !data) throw new Error('Failed to create conversation')
+    setCurrentConversationId(data.id)
+    fetchConversations()
+    return data.id as string
+  }
+
+  const saveMessageRow = async (convId: string, role: 'user' | 'assistant', content: string, model?: string) => {
+    await supabase.from('messages').insert({
+      conversation_id: convId,
+      user_id: userId,
+      role,
+      content,
+      model: model || selectedModel,
+    })
+  }
+
+  const readSSE = async (
+    response: Response,
+    onEvent: (e: Record<string, unknown>) => void | Promise<void>
+  ) => {
+    const reader = response.body?.getReader()
+    if (!reader) throw new Error('No response stream')
+    const decoder = new TextDecoder()
+    let buffer = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        try {
+          await onEvent(JSON.parse(line.slice(6)))
+        } catch {
+          continue
+        }
+      }
+    }
+  }
+
+  const runResearchFlow = async (text: string, convId: string, signal: AbortSignal) => {
+    const messageId = 'temp-' + Date.now()
+    setMessages((prev) => [...prev, { id: messageId, conversation_id: convId, user_id: userId, role: 'assistant', content: 'กำลังค้นคว้า...', model: selectedModel, created_at: new Date().toISOString() } as Message])
+
+    const response = await fetch('/api/research', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: text, model: selectedModel, depth: 'standard', conversationId: convId, stream: true }),
+      signal,
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.error || 'Research failed')
+    }
+
+    let report = ''
+    let sources: Array<{ title: string; url: string }> = []
+    await readSSE(response, (e) => {
+      if (e.step === 'token' && typeof e.content === 'string') {
+        report += e.content
+        setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, content: report } : m)))
+      } else if (typeof e.content === 'string' && e.step !== 'done') {
+        setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, content: report ? report + '\n\n_' + e.content + '_' : '_' + e.content + '_' } : m)))
+      }
+      if (e.step === 'done') {
+        if (typeof e.content === 'string' && e.content) report = e.content
+        if (Array.isArray(e.sources)) sources = e.sources as Array<{ title: string; url: string }>
+      }
+      if (e.step === 'error') throw new Error(typeof e.content === 'string' ? e.content : 'Research failed')
+    })
+
+    const final = report + (sources.length ? '\n\n**แหล่งอ้างอิง**\n' + sources.map((s, i) => `[${i + 1}] [${s.title}](${s.url})`).join('\n') : '')
+    await saveMessageRow(convId, 'assistant', final)
+    await fetchMessages(convId)
+    await fetchConversations()
+  }
+
+  const runCompareFlow = async (text: string, convId: string, signal: AbortSignal, secondModelId: string) => {
+    const ids = [selectedModel, secondModelId]
+    const names: Record<string, string> = {}
+    for (const id of ids) {
+      names[id] = models.find((m) => m.id === id)?.display_name || id
+    }
+    const tempIds: Record<string, string> = {}
+    setMessages((prev) => [
+      ...prev,
+      ...ids.map((id) => {
+        const tid = `temp-${id}-${Date.now()}`
+        tempIds[id] = tid
+        return { id: tid, conversation_id: convId, user_id: userId, role: 'assistant', content: `_${names[id]} กำลังตอบ..._`, model: id, created_at: new Date().toISOString() } as Message
+      }),
+    ])
+
+    const response = await fetch('/api/compare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: text }], models: ids }),
+      signal,
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.error || 'Compare failed')
+    }
+
+    const buffers: Record<string, string> = { [ids[0]]: '', [ids[1]]: '' }
+    const doneSet = new Set<string>()
+    await readSSE(response, (e) => {
+      const mid = e.modelId as string | undefined
+      if (e.error) throw new Error(String(e.error))
+      if (!mid || !tempIds[mid]) return
+      if (typeof e.content === 'string' && e.content) {
+        buffers[mid] += e.content
+        const tid = tempIds[mid]
+        const buf = buffers[mid]
+        setMessages((prev) => prev.map((m) => (m.id === tid ? { ...m, content: buf } : m)))
+      }
+      if (e.done) {
+        doneSet.add(mid)
+        const tid = tempIds[mid]
+        const buf = buffers[mid]
+        setMessages((prev) => prev.map((m) => (m.id === tid ? { ...m, content: buf } : m)))
+      }
+    })
+
+    for (const id of ids) {
+      await saveMessageRow(convId, 'assistant', `**${names[id]}**\n\n${buffers[id]}`, id)
+    }
+    await fetchMessages(convId)
+    await fetchConversations()
+  }
+
+  const runImageFlow = async (text: string, convId: string) => {
+    const messageId = 'temp-' + Date.now()
+    setMessages((prev) => [...prev, { id: messageId, conversation_id: convId, user_id: userId, role: 'assistant', content: '_กำลังสร้างภาพ..._', model: selectedModel, created_at: new Date().toISOString() } as Message])
+
+    const response = await fetch('/api/images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: text, conversationId: convId }),
+    })
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.error || 'Image generation failed')
+
+    const md = `![${text}](${data.imageUrl})`
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, content: md } : m)))
+    await saveMessageRow(convId, 'assistant', md)
+    await fetchMessages(convId)
+    await fetchConversations()
+  }
+
   const handleSend = async (text: string, files: File[]) => {
     if (!selectedModel) return
 
@@ -243,6 +438,29 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
 
       setMessages((prev) => [...prev, { ...newUserMessage, id: 'temp-user', conversation_id: conversationId || '', user_id: userId, created_at: new Date().toISOString() } as Message])
 
+      // Special inline modes (precedence: Research > Compare > Image)
+      if (modeResearch || modeCompare || modeImage) {
+        conversationId = await ensureConversation(text)
+        setMessages((prev) =>
+          prev.map((m) => (m.id === 'temp-user' ? { ...m, conversation_id: conversationId as string } : m))
+        )
+        await saveMessageRow(conversationId, 'user', text)
+        if (modeResearch) {
+          await runResearchFlow(text, conversationId, controller.signal)
+          return
+        }
+        if (modeCompare) {
+          const second = compareModel && compareModel !== selectedModel
+            ? compareModel
+            : models.find((m) => m.id !== selectedModel && m.enabled)?.id || ''
+          if (!second) throw new Error('ต้องการอย่างน้อย 2 โมเดลที่เปิดใช้สำหรับ Compare')
+          await runCompareFlow(text, conversationId, controller.signal, second)
+          return
+        }
+        await runImageFlow(text, conversationId)
+        return
+      }
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -253,6 +471,9 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
           attachments: attachmentIds,
           stream: true,
           webSearch,
+          kbId: modeKb && kbId !== 'all' ? kbId : null,
+          kbSearchAll: modeKb && kbId === 'all',
+          systemPromptId: promptId || null,
         }),
         signal: controller.signal,
       })
@@ -403,25 +624,80 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
       />
 
       <div className="flex-1 flex flex-col min-w-0 lg:pl-0">
-        <header className="flex items-center gap-2 border-b border-border px-4 py-3 bg-card">
+        <header className="flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-2 bg-card">
           <MobileSidebarTrigger onClick={() => setSidebarOpen(true)} />
           <ModelSelector
             models={models}
             selectedModel={selectedModel}
             onSelect={setSelectedModel}
             disabled={generating}
-            className="flex-1 max-w-xs"
+            className="flex-1 min-w-[160px] max-w-xs"
           />
-          <Button variant={webSearch ? 'default' : 'outline'} size="sm" onClick={() => setWebSearch((v) => !v)} title="ค้นเว็บก่อนตอบ">
-            {webSearch ? 'Web ON' : 'Web OFF'}
+          <Button variant={webSearch ? 'default' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => setWebSearch((v) => !v)} title="ค้นเว็บก่อนตอบ (ใช้ร่วมกับแชตปกติได้)">
+            <Globe className="h-3.5 w-3.5 mr-1" />Web
           </Button>
-          <nav className="hidden md:flex items-center gap-1 text-xs">
-            <a href="/research" className="px-2 py-1 rounded hover:bg-accent">Research</a>
-            <a href="/knowledge" className="px-2 py-1 rounded hover:bg-accent">KB</a>
-            <a href="/compare" className="px-2 py-1 rounded hover:bg-accent">Compare</a>
-            <a href="/images" className="px-2 py-1 rounded hover:bg-accent">Image</a>
-            <a href="/prompts" className="px-2 py-1 rounded hover:bg-accent">Prompts</a>
-          </nav>
+          <Button variant={modeResearch ? 'default' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => setModeResearch((v) => !v)} title="รายงาน Deep Research ตอบในแชตนี้เลย">
+            <Microscope className="h-3.5 w-3.5 mr-1" />Research
+          </Button>
+          <Button variant={modeKb ? 'default' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => setModeKb((v) => !v)} title="ดึงความรู้จาก Knowledge Base มาตอบ">
+            <BookOpen className="h-3.5 w-3.5 mr-1" />KB
+          </Button>
+          {modeKb && (
+            <Select value={kbId} onValueChange={setKbId}>
+              <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue placeholder="คลัง" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกคลัง</SelectItem>
+                {kbList.map((k) => <SelectItem key={k.id} value={k.id}>{k.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          <Button variant={modeCompare ? 'default' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => {
+            const next = !modeCompare
+            setModeCompare(next)
+            if (next && !compareModel) {
+              const other = models.find((m) => m.id !== selectedModel && m.enabled)
+              if (other) setCompareModel(other.id)
+            }
+          }} title="เทียบคำตอบ 2 โมเดลในแชตนี้เลย">
+            <Columns2 className="h-3.5 w-3.5 mr-1" />Compare
+          </Button>
+          {modeCompare && (
+            <Select value={compareModel} onValueChange={setCompareModel}>
+              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue placeholder="คู่เทียบ" /></SelectTrigger>
+              <SelectContent>
+                {models.filter((m) => m.id !== selectedModel && m.enabled).map((m) => (
+                  <SelectItem key={m.id} value={m.id}>{m.display_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button variant={modeImage ? 'default' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => setModeImage((v) => !v)} title="สร้างภาพจากข้อความในแชตนี้เลย">
+            <ImageIcon className="h-3.5 w-3.5 mr-1" />Image
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant={promptId ? 'default' : 'outline'} size="sm" className="h-8 text-xs" title="เลือกพร้อมท์เสริมมาตอบ">
+                <ScrollText className="h-3.5 w-3.5 mr-1" />Prompts{promptId ? ' •' : ''}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64 max-h-[300px] overflow-auto">
+              <DropdownMenuItem onClick={() => setPromptId('')}>
+                <span className="text-muted-foreground">ไม่ใช้พร้อมท์</span>
+                {!promptId && <Check className="h-3.5 w-3.5 ml-auto" />}
+              </DropdownMenuItem>
+              {prompts.map((p) => (
+                <DropdownMenuItem key={p.id} onClick={() => setPromptId(promptId === p.id ? '' : p.id)}>
+                  <span className="truncate">{p.title}</span>
+                  {promptId === p.id && <Check className="h-3.5 w-3.5 ml-auto flex-shrink-0" />}
+                </DropdownMenuItem>
+              ))}
+              {prompts.length === 0 && (
+                <DropdownMenuItem disabled>
+                  <span className="text-muted-foreground text-xs">ยังไม่มีพร้อมท์ — เพิ่มที่หน้า Prompts</span>
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
 
         <main className="flex-1 overflow-hidden relative">

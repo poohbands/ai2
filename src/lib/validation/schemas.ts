@@ -23,6 +23,7 @@ export const chatRequestSchema = z.object({
   // Phase 2 additions (all optional, backwards compatible)
   webSearch: z.boolean().optional().default(false),
   kbId: z.string().uuid().optional().nullable(),
+  kbSearchAll: z.boolean().optional().default(false),
   systemPromptId: z.string().uuid().optional().nullable(),
 })
 
