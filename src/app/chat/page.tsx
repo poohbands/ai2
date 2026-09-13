@@ -1,0 +1,24 @@
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { ChatClient } from './chat-client'
+
+export default async function ChatPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/login?callbackUrl=/chat')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile || !profile.is_active) {
+    redirect('/login?error=Account disabled')
+  }
+
+  return <ChatClient userId={user.id} profile={profile} />
+}
