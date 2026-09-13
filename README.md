@@ -31,7 +31,7 @@ A privacy-focused AI chat application for family use, built with Next.js, Supaba
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 (App Router)
+- **Framework**: Next.js 16 (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS + shadcn/ui
 - **Database**: Supabase (PostgreSQL)
@@ -264,7 +264,15 @@ Before deployment, verify:
 - [ ] Admin can view stats
 - [ ] Admin can manage users
 - [ ] Admin cannot see chat content
+- [ ] Web Search toggle returns cited results
+- [ ] Deep Research streams report with sources (`/research`)
+- [ ] KB ingest + retrieve returns relevant chunks (`/knowledge`)
+- [ ] Model Compare streams 2 models side-by-side (`/compare`)
+- [ ] Image Generation returns an image (`/images`)
+- [ ] Prompt Library save/copy works (`/prompts`)
+- [ ] Scanned PDF detected; OCR or guidance returned
 - [ ] `npm run build` passes
+- [ ] `npm run typecheck` passes
 - [ ] No TypeScript errors
 - [ ] No secret leakage in client bundle
 
