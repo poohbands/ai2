@@ -11,13 +11,14 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Users, Activity, DollarSign, TrendingUp, KeyRound, Boxes, UserCheck, UserX, Shield, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react'
+import { Loader2, Users, Activity, DollarSign, TrendingUp, KeyRound, Boxes, Wrench, UserCheck, UserX, Shield, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react'
 import { cn, formatCost, formatRelativeTime } from '@/lib/utils'
 import { AdminStats, AdminUser } from '@/types'
 import { ProvidersTab } from '@/components/admin/providers-tab'
 import { ModelsTab } from '@/components/admin/models-tab'
+import { DebugTab } from '@/components/admin/debug-tab'
 
-type AdminTab = 'users' | 'models' | 'providers'
+type AdminTab = 'users' | 'models' | 'providers' | 'debug'
 
 export function AdminClient() {
   const router = useRouter()
@@ -141,6 +142,10 @@ export function AdminClient() {
             <KeyRound className="h-4 w-4" />
             Providers
           </Button>
+          <Button variant={tab === 'debug' ? 'default' : 'ghost'} className="w-full justify-start gap-2" onClick={() => setTab('debug')}>
+            <Wrench className="h-4 w-4" />
+            System Check
+          </Button>
         </nav>
         <div className="p-4 border-t border-border">
           <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => router.push('/chat')}>
@@ -158,6 +163,7 @@ export function AdminClient() {
               {tab === 'users' && 'Manage users and monitor usage'}
               {tab === 'models' && 'Enable models and assign provider keys'}
               {tab === 'providers' && 'Manage AI provider API keys'}
+              {tab === 'debug' && 'Connection and environment diagnostics'}
             </p>
           </div>
 
@@ -339,6 +345,7 @@ export function AdminClient() {
 
           {tab === 'models' && <ModelsTab />}
           {tab === 'providers' && <ProvidersTab />}
+          {tab === 'debug' && <DebugTab />}
         </div>
       </main>
     </div>
