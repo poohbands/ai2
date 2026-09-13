@@ -45,10 +45,15 @@ export function AdminClient() {
   const fetchUsers = async () => {
     try {
       const response = await fetch('/api/admin/users')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP ${response.status}`)
+      }
       const data = await response.json()
       setUsers(data.users || [])
     } catch (error) {
       console.error('Failed to fetch users:', error)
+      setUsers([])
     }
   }
 
