@@ -1,4 +1,4 @@
--- Family AI one-shot setup (fresh project only, run ONCE)
+-- Family AI one-shot setup (SAFE TO RE-RUN, run whole file in SQL Editor)
 -- Paste entire file into Supabase SQL Editor and Run.
 
 -- ========== 20240101000001_initial_schema.sql ==========
@@ -6,7 +6,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Profiles table
-CREATE TABLE public.profiles (
+CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
   display_name TEXT,
@@ -20,7 +20,7 @@ CREATE TABLE public.profiles (
 );
 
 -- Conversations table
-CREATE TABLE public.conversations (
+CREATE TABLE IF NOT EXISTS public.conversations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   title TEXT NOT NULL DEFAULT 'New Chat',
@@ -32,7 +32,7 @@ CREATE TABLE public.conversations (
 );
 
 -- Messages table
-CREATE TABLE public.messages (
+CREATE TABLE IF NOT EXISTS public.messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -46,7 +46,7 @@ CREATE TABLE public.messages (
 );
 
 -- Attachments table
-CREATE TABLE public.attachments (
+CREATE TABLE IF NOT EXISTS public.attachments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
@@ -58,7 +58,7 @@ CREATE TABLE public.attachments (
 );
 
 -- Models table
-CREATE TABLE public.models (
+CREATE TABLE IF NOT EXISTS public.models (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   provider_model_id TEXT NOT NULL,
   display_name TEXT NOT NULL,
@@ -74,7 +74,7 @@ CREATE TABLE public.models (
 );
 
 -- Usage logs table
-CREATE TABLE public.usage_logs (
+CREATE TABLE IF NOT EXISTS public.usage_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   conversation_id UUID REFERENCES public.conversations(id) ON DELETE SET NULL,
@@ -89,17 +89,17 @@ CREATE TABLE public.usage_logs (
 );
 
 -- Indexes
-CREATE INDEX idx_conversations_user_id ON public.conversations(user_id);
-CREATE INDEX idx_conversations_updated_at ON public.conversations(updated_at DESC);
-CREATE INDEX idx_conversations_user_updated ON public.conversations(user_id, updated_at DESC);
-CREATE INDEX idx_messages_conversation_id ON public.messages(conversation_id);
-CREATE INDEX idx_messages_user_id ON public.messages(user_id);
-CREATE INDEX idx_attachments_user_id ON public.attachments(user_id);
-CREATE INDEX idx_attachments_conversation_id ON public.attachments(conversation_id);
-CREATE INDEX idx_usage_logs_user_id ON public.usage_logs(user_id);
-CREATE INDEX idx_usage_logs_created_at ON public.usage_logs(created_at DESC);
-CREATE INDEX idx_usage_logs_user_created ON public.usage_logs(user_id, created_at DESC);
-CREATE INDEX idx_models_enabled ON public.models(enabled) WHERE enabled = TRUE;
+CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON public.conversations(user_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON public.conversations(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_user_updated ON public.conversations(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON public.messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_messages_user_id ON public.messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_user_id ON public.attachments(user_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_conversation_id ON public.attachments(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_user_id ON public.usage_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_created_at ON public.usage_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_user_created ON public.usage_logs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_models_enabled ON public.models(enabled) WHERE enabled = TRUE;
 
 -- ========== 20240101000002_rls_policies.sql ==========
 -- Enable RLS on all tables
@@ -111,26 +111,33 @@ ALTER TABLE public.models ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.usage_logs ENABLE ROW LEVEL SECURITY;
 
 -- Profiles policies
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile" ON public.profiles
   FOR SELECT USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
 
 -- Conversations policies
+DROP POLICY IF EXISTS "Users can view own conversations" ON public.conversations;
 CREATE POLICY "Users can view own conversations" ON public.conversations
   FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own conversations" ON public.conversations;
 CREATE POLICY "Users can insert own conversations" ON public.conversations
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own conversations" ON public.conversations;
 CREATE POLICY "Users can update own conversations" ON public.conversations
   FOR UPDATE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own conversations" ON public.conversations;
 CREATE POLICY "Users can delete own conversations" ON public.conversations
   FOR DELETE USING (auth.uid() = user_id);
 
 -- Messages policies
+DROP POLICY IF EXISTS "Users can view messages in own conversations" ON public.messages;
 CREATE POLICY "Users can view messages in own conversations" ON public.messages
   FOR SELECT USING (
     EXISTS (
@@ -139,6 +146,7 @@ CREATE POLICY "Users can view messages in own conversations" ON public.messages
     )
   );
 
+DROP POLICY IF EXISTS "Users can insert messages in own conversations" ON public.messages;
 CREATE POLICY "Users can insert messages in own conversations" ON public.messages
   FOR INSERT WITH CHECK (
     EXISTS (
@@ -148,20 +156,25 @@ CREATE POLICY "Users can insert messages in own conversations" ON public.message
   );
 
 -- Attachments policies
+DROP POLICY IF EXISTS "Users can view own attachments" ON public.attachments;
 CREATE POLICY "Users can view own attachments" ON public.attachments
   FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own attachments" ON public.attachments;
 CREATE POLICY "Users can insert own attachments" ON public.attachments
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own attachments" ON public.attachments;
 CREATE POLICY "Users can delete own attachments" ON public.attachments
   FOR DELETE USING (auth.uid() = user_id);
 
 -- Models policies (read-only for users, admin can manage)
+DROP POLICY IF EXISTS "Users can view enabled models" ON public.models;
 CREATE POLICY "Users can view enabled models" ON public.models
   FOR SELECT USING (enabled = TRUE);
 
 -- Usage logs policies
+DROP POLICY IF EXISTS "Users can view own usage logs" ON public.usage_logs;
 CREATE POLICY "Users can view own usage logs" ON public.usage_logs
   FOR SELECT USING (auth.uid() = user_id);
 
@@ -169,34 +182,23 @@ CREATE POLICY "Users can view own usage logs" ON public.usage_logs
 -- Note: Admin operations should use service role client, not these policies
 
 -- ========== 20240101000003_seed_models.sql ==========
--- Seed initial models
-INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) VALUES
--- Google Gemini
-('gemini-1.5-pro', 'Gemini 1.5 Pro', 'kob', 'Google', TRUE, TRUE, 0.00000125, 0.000005, 10),
-('gemini-1.5-flash', 'Gemini 1.5 Flash', 'kob', 'Google', TRUE, TRUE, 0.000000075, 0.0000003, 20),
-('gemini-1.0-pro', 'Gemini 1.0 Pro', 'kob', 'Google', FALSE, TRUE, 0.0000005, 0.0000015, 30),
-
--- Anthropic Claude
-('claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet', 'kob', 'Anthropic', TRUE, TRUE, 0.000003, 0.000015, 40),
-('claude-3-5-haiku-20241022', 'Claude 3.5 Haiku', 'kob', 'Anthropic', TRUE, TRUE, 0.000001, 0.000005, 50),
-('claude-3-opus-20240229', 'Claude 3 Opus', 'kob', 'Anthropic', TRUE, TRUE, 0.000015, 0.000075, 60),
-
--- OpenAI GPT
-('gpt-4o', 'GPT-4o', 'kob', 'OpenAI', TRUE, TRUE, 0.0000025, 0.00001, 70),
-('gpt-4o-mini', 'GPT-4o Mini', 'kob', 'OpenAI', TRUE, TRUE, 0.00000015, 0.0000006, 80),
-('gpt-4-turbo', 'GPT-4 Turbo', 'kob', 'OpenAI', TRUE, TRUE, 0.00001, 0.00003, 90),
-
--- DeepSeek
-('deepseek-chat', 'DeepSeek V3', 'kob', 'DeepSeek', FALSE, TRUE, 0.00000027, 0.0000011, 100),
-('deepseek-reasoner', 'DeepSeek R1', 'kob', 'DeepSeek', FALSE, TRUE, 0.00000055, 0.00000219, 110),
-
--- Qwen
-('qwen-2.5-72b-instruct', 'Qwen 2.5 72B', 'kob', 'Alibaba', FALSE, TRUE, 0.0000004, 0.0000004, 120),
-('qwen-2.5-vl-72b-instruct', 'Qwen 2.5 VL 72B', 'kob', 'Alibaba', TRUE, TRUE, 0.0000008, 0.0000008, 130),
-
--- Z.ai GLM
-('glm-4', 'GLM-4', 'kob', 'Z.ai', FALSE, TRUE, 0.0000005, 0.0000005, 140),
-('glm-4v', 'GLM-4V', 'kob', 'Z.ai', TRUE, TRUE, 0.000001, 0.000001, 150);
+-- Seed models (idempotent: removes dupes, inserts missing only)
+DELETE FROM public.models a USING public.models b WHERE a.id > b.id AND a.provider_model_id = b.provider_model_id;
+INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) SELECT 'gemini-1.5-pro', 'Gemini 1.5 Pro', 'kob', 'Google', TRUE, TRUE, 1.25e-06, 5e-06, 10 WHERE NOT EXISTS (SELECT 1 FROM public.models WHERE provider_model_id = 'gemini-1.5-pro');
+INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) SELECT 'gemini-1.5-flash', 'Gemini 1.5 Flash', 'kob', 'Google', TRUE, TRUE, 7.5e-08, 3e-07, 20 WHERE NOT EXISTS (SELECT 1 FROM public.models WHERE provider_model_id = 'gemini-1.5-flash');
+INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) SELECT 'gemini-1.0-pro', 'Gemini 1.0 Pro', 'kob', 'Google', FALSE, TRUE, 5e-07, 1.5e-06, 30 WHERE NOT EXISTS (SELECT 1 FROM public.models WHERE provider_model_id = 'gemini-1.0-pro');
+INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) SELECT 'claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet', 'kob', 'Anthropic', TRUE, TRUE, 3e-06, 1.5e-05, 40 WHERE NOT EXISTS (SELECT 1 FROM public.models WHERE provider_model_id = 'claude-3-5-sonnet-20241022');
+INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) SELECT 'claude-3-5-haiku-20241022', 'Claude 3.5 Haiku', 'kob', 'Anthropic', TRUE, TRUE, 1e-06, 5e-06, 50 WHERE NOT EXISTS (SELECT 1 FROM public.models WHERE provider_model_id = 'claude-3-5-haiku-20241022');
+INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) SELECT 'claude-3-opus-20240229', 'Claude 3 Opus', 'kob', 'Anthropic', TRUE, TRUE, 1.5e-05, 7.5e-05, 60 WHERE NOT EXISTS (SELECT 1 FROM public.models WHERE provider_model_id = 'claude-3-opus-20240229');
+INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) SELECT 'gpt-4o', 'GPT-4o', 'kob', 'OpenAI', TRUE, TRUE, 2.5e-06, 1e-05, 70 WHERE NOT EXISTS (SELECT 1 FROM public.models WHERE provider_model_id = 'gpt-4o');
+INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) SELECT 'gpt-4o-mini', 'GPT-4o Mini', 'kob', 'OpenAI', TRUE, TRUE, 1.5e-07, 6e-07, 80 WHERE NOT EXISTS (SELECT 1 FROM public.models WHERE provider_model_id = 'gpt-4o-mini');
+INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) SELECT 'gpt-4-turbo', 'GPT-4 Turbo', 'kob', 'OpenAI', TRUE, TRUE, 1e-05, 3e-05, 90 WHERE NOT EXISTS (SELECT 1 FROM public.models WHERE provider_model_id = 'gpt-4-turbo');
+INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) SELECT 'deepseek-chat', 'DeepSeek V3', 'kob', 'DeepSeek', FALSE, TRUE, 2.7e-07, 1.1e-06, 100 WHERE NOT EXISTS (SELECT 1 FROM public.models WHERE provider_model_id = 'deepseek-chat');
+INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) SELECT 'deepseek-reasoner', 'DeepSeek R1', 'kob', 'DeepSeek', FALSE, TRUE, 5.5e-07, 2.19e-06, 110 WHERE NOT EXISTS (SELECT 1 FROM public.models WHERE provider_model_id = 'deepseek-reasoner');
+INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) SELECT 'qwen-2.5-72b-instruct', 'Qwen 2.5 72B', 'kob', 'Alibaba', FALSE, TRUE, 4e-07, 4e-07, 120 WHERE NOT EXISTS (SELECT 1 FROM public.models WHERE provider_model_id = 'qwen-2.5-72b-instruct');
+INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) SELECT 'qwen-2.5-vl-72b-instruct', 'Qwen 2.5 VL 72B', 'kob', 'Alibaba', TRUE, TRUE, 8e-07, 8e-07, 130 WHERE NOT EXISTS (SELECT 1 FROM public.models WHERE provider_model_id = 'qwen-2.5-vl-72b-instruct');
+INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) SELECT 'glm-4', 'GLM-4', 'kob', 'Z.ai', FALSE, TRUE, 5e-07, 5e-07, 140 WHERE NOT EXISTS (SELECT 1 FROM public.models WHERE provider_model_id = 'glm-4');
+INSERT INTO public.models (provider_model_id, display_name, provider, category, supports_vision, enabled, estimated_input_cost, estimated_output_cost, sort_order) SELECT 'glm-4v', 'GLM-4V', 'kob', 'Z.ai', TRUE, TRUE, 1e-06, 1e-06, 150 WHERE NOT EXISTS (SELECT 1 FROM public.models WHERE provider_model_id = 'glm-4v');
 
 -- ========== 20240101000004_updated_at_triggers.sql ==========
 -- Function to update updated_at timestamp
@@ -209,14 +211,17 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Triggers
+DROP TRIGGER IF EXISTS profiles_updated_at ON public.profiles;
 CREATE TRIGGER profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
+DROP TRIGGER IF EXISTS conversations_updated_at ON public.conversations;
 CREATE TRIGGER conversations_updated_at
   BEFORE UPDATE ON public.conversations
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
+DROP TRIGGER IF EXISTS models_updated_at ON public.models;
 CREATE TRIGGER models_updated_at
   BEFORE UPDATE ON public.models
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
@@ -240,6 +245,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trigger on auth.users
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
@@ -405,6 +411,9 @@ $$;
 
 -- ========== Storage: chat-files bucket + policies ==========
 INSERT INTO storage.buckets (id, name, public) VALUES ('chat-files', 'chat-files', false) ON CONFLICT (id) DO NOTHING;
+DROP POLICY IF EXISTS "Users can upload own files" ON storage.objects;
+DROP POLICY IF EXISTS "Users can read own files" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete own files" ON storage.objects;
 CREATE POLICY "Users can upload own files" ON storage.objects
 FOR INSERT WITH CHECK (bucket_id = 'chat-files' AND auth.uid()::text = (storage.foldername(name))[1]);
 CREATE POLICY "Users can read own files" ON storage.objects
