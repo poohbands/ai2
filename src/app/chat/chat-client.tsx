@@ -146,8 +146,10 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
       if (data) setMessages(data)
+      return data as Message[] | null
     } catch (error) {
       console.error('Failed to fetch messages:', error)
+      return null
     }
   }
 
@@ -255,13 +257,14 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
   }
 
   const saveMessageRow = async (convId: string, role: 'user' | 'assistant', content: string, model?: string) => {
-    await supabase.from('messages').insert({
+    const { error } = await supabase.from('messages').insert({
       conversation_id: convId,
       user_id: userId,
       role,
       content,
       model: model || selectedModel,
     })
+    if (error) throw new Error('Failed to save message')
   }
 
   const readSSE = async (
@@ -530,8 +533,22 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
           }
           if (parsed.done) {
             // Server already saved both messages; reload authoritative state
-            await fetchMessages(conversationId || '')
+            const rows = await fetchMessages(conversationId || '')
             await fetchConversations()
+            // Safety net: if the user's question didn't come back, save it directly
+            // so it is never silently lost from screen or history
+            if (
+              rows &&
+              conversationId &&
+              !rows.some((r) => r.role === 'user' && r.content === text)
+            ) {
+              try {
+                await saveMessageRow(conversationId, 'user', text)
+                await fetchMessages(conversationId)
+              } catch (e) {
+                console.error('Safety-net save failed:', e)
+              }
+            }
           }
         }
       }
