@@ -133,6 +133,17 @@ export const adminModelUpdateSchema = z.object({
   estimated_output_cost: z.number().min(0).optional(),
 })
 
+export const adminModelCreateSchema = z.object({
+  provider_model_id: z.string().min(1).max(200),
+  display_name: z.string().min(1).max(200),
+  category: z.string().max(100).optional().default('Custom'),
+  supports_vision: z.boolean().optional().default(false),
+  enabled: z.boolean().optional().default(true),
+  provider_id: z.string().uuid().nullable().optional(),
+  estimated_input_cost: z.number().min(0).optional().default(0.000001),
+  estimated_output_cost: z.number().min(0).optional().default(0.000002),
+})
+
 export type ChatRequest = z.infer<typeof chatRequestSchema>
 export type ConversationCreate = z.infer<typeof conversationCreateSchema>
 export type ConversationUpdate = z.infer<typeof conversationUpdateSchema>
