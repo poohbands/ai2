@@ -42,6 +42,38 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
   const [webSearch, setWebSearch] = useState(false)
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    if (typeof window === 'undefined') return 300
+    const saved = Number(window.localStorage.getItem('sidebar-width'))
+    return Number.isFinite(saved) && saved >= 240 && saved <= 520 ? saved : 300
+  })
+  const resizingRef = useRef(false)
+
+  const startResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    resizingRef.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const onMove = (ev: MouseEvent) => {
+      if (!resizingRef.current) return
+      const w = Math.min(520, Math.max(240, ev.clientX))
+      setSidebarWidth(w)
+    }
+    const onUp = () => {
+      resizingRef.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      setSidebarWidth((w) => {
+        window.localStorage.setItem('sidebar-width', String(w))
+        return w
+      })
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
@@ -209,7 +241,7 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
         ;(newUserMessage as Record<string, unknown>).attachments = attachmentIds
       }
 
-      setMessages((prev) => [...prev, { ...newUserMessage, id: 'temp', conversation_id: conversationId || '', user_id: userId, created_at: new Date().toISOString() } as Message])
+      setMessages((prev) => [...prev, { ...newUserMessage, id: 'temp-user', conversation_id: conversationId || '', user_id: userId, created_at: new Date().toISOString() } as Message])
 
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -226,76 +258,59 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
       })
 
       if (!response.ok) {
-        const error = await response.json()
+        const error = await response.json().catch(() => ({}))
         throw new Error(error.error || 'Failed to send message')
       }
 
-      if (!conversationId) {
-        const reader = response.body?.getReader()
-        if (reader) {
-          const decoder = new TextDecoder()
-          let buffer = ''
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() || ''
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6)
-                try {
-                  const parsed = JSON.parse(data)
-                  if (parsed.conversationId) {
-                    conversationId = parsed.conversationId
-                    setCurrentConversationId(conversationId)
-                    await fetchConversations()
-                    break
-                  }
-                } catch {}
-              }
-            }
-            if (conversationId) break
-          }
-        }
-      }
+      // Single-pass SSE read: content tokens + conversationId + done event
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No response stream')
 
+      const messageId = 'temp-' + Date.now()
+      setMessages((prev) => [...prev, { id: messageId, conversation_id: conversationId || '', user_id: userId, role: 'assistant', content: '', model: selectedModel, created_at: new Date().toISOString() } as Message])
+
+      const decoder = new TextDecoder()
+      let buffer = ''
       let fullContent = ''
-      const reader2 = response.body?.getReader()
-      if (reader2) {
-        const decoder = new TextDecoder()
-        let buffer = ''
-        const messageId = 'temp-' + Date.now()
 
-        setMessages((prev) => [...prev, { id: messageId, conversation_id: conversationId || '', user_id: userId, role: 'assistant', content: '', model: selectedModel, created_at: new Date().toISOString() } as Message])
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
 
-        while (true) {
-          const { done, value } = await reader2.read()
-          if (done) break
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6)
-              try {
-                const parsed = JSON.parse(data)
-                if (parsed.error) {
-                  throw new Error(parsed.error)
-                }
-                if (parsed.content) {
-                  fullContent += parsed.content
-                  setMessages((prev) =>
-                    prev.map((m) => (m.id === messageId ? { ...m, content: fullContent } : m))
-                  )
-                }
-                if (parsed.done) {
-                  await fetchMessages(conversationId || '')
-                  await fetchConversations()
-                }
-              } catch {}
-            }
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          let parsed: { content?: string; conversationId?: string; done?: boolean; error?: string }
+          try {
+            parsed = JSON.parse(line.slice(6))
+          } catch {
+            continue
+          }
+          if (parsed.error) throw new Error(parsed.error)
+          if (parsed.content) {
+            fullContent += parsed.content
+            setMessages((prev) =>
+              prev.map((m) => (m.id === messageId ? { ...m, content: fullContent } : m))
+            )
+          }
+          if (parsed.conversationId && !conversationId) {
+            conversationId = parsed.conversationId
+            setCurrentConversationId(conversationId)
+            // Replace optimistic ids so a later refetch/switch stays consistent
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === 'temp-user' || m.id === messageId
+                  ? { ...m, conversation_id: conversationId as string }
+                  : m
+              )
+            )
+          }
+          if (parsed.done) {
+            // Server already saved both messages; reload authoritative state
+            await fetchMessages(conversationId || '')
+            await fetchConversations()
           }
         }
       }
@@ -378,6 +393,13 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
         onLogout={handleLogout}
         isMobile={false}
         onCloseMobile={() => setSidebarOpen(false)}
+        width={sidebarWidth}
+      />
+      {/* Draggable divider (desktop) */}
+      <div
+        onMouseDown={startResize}
+        className="hidden lg:block w-1.5 flex-shrink-0 cursor-col-resize hover:bg-accent active:bg-accent transition-colors"
+        title="ลากเพื่อปรับความกว้าง"
       />
 
       <div className="flex-1 flex flex-col min-w-0 lg:pl-0">

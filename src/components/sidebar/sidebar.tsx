@@ -52,6 +52,7 @@ interface SidebarProps {
   onLogout: () => void
   isMobile: boolean
   onCloseMobile: () => void
+  width?: number
 }
 
 export function Sidebar({
@@ -67,6 +68,7 @@ export function Sidebar({
   onLogout,
   isMobile,
   onCloseMobile,
+  width,
 }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -109,8 +111,9 @@ export function Sidebar({
         'flex flex-col h-full bg-card border-r border-border transition-transform duration-200 ease-in-out',
         isMobile
           ? 'fixed left-0 top-0 z-50 w-80 shadow-xl'
-          : 'hidden lg:flex'
+          : 'hidden lg:flex flex-shrink-0'
       )}
+      style={!isMobile && width ? { width } : undefined}
     >
       {!isMobile && (
         <div className="flex items-center justify-between p-4 border-b border-border">

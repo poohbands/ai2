@@ -194,13 +194,17 @@ export async function POST(request: NextRequest) {
       ? userMessage.content
       : userMessage.content.filter((c) => c.type === 'text').map((c) => c.text).join('')
 
-    await serviceClient.from('messages').insert({
+    const { error: userMsgError } = await serviceClient.from('messages').insert({
       conversation_id: conversationIdFinal,
       user_id: user.id,
       role: 'user',
       content: userMessageContent,
       model: modelId,
     })
+    if (userMsgError) {
+      console.error('Failed to save user message:', userMsgError)
+      return NextResponse.json({ error: 'Failed to save your message. Please try again.' }, { status: 500 })
+    }
 
     const context = await getConversationContext(serviceClient, conversationIdFinal!, user.id)
     const attachmentContext = await getAttachmentContext(serviceClient, attachmentIds || [], user.id)
