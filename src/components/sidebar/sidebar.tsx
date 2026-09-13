@@ -27,6 +27,7 @@ import {
   User,
   Settings,
   ChevronLeft,
+  MoreHorizontal,
   X,
 } from 'lucide-react'
 import { Conversation } from '@/types'
@@ -273,41 +274,52 @@ function ConversationItem({
   const isRenaming = renamingId === conversation.id
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          onClick={() => onSelect(conversation.id)}
-          className={cn(
-            'w-full px-2 py-2 rounded-lg text-left transition-colors',
-            'hover:bg-accent',
-            isActive ? 'bg-accent' : '',
-            conversation.archived && 'opacity-60'
-          )}
-        >
-          <div className="flex items-start gap-2 min-w-0">
-            <div className="flex-1 min-w-0">
-              {isRenaming ? (
-                <input
-                  type="text"
-                  value={renameValue}
-                  onChange={(e) => onRenameChange(e.target.value)}
-                  onKeyDown={(e) => onKeyDown(e, conversation.id)}
-                  onBlur={() => onRenameConfirm(conversation.id)}
-                  autoFocus
-                  className="w-full px-1 py-0.5 text-sm border border-input rounded bg-background outline-none"
-                />
-              ) : (
-                <p className="truncate text-sm font-medium">{conversation.title}</p>
-              )}
-              <p className="truncate text-xs text-muted-foreground">
-                {formatRelativeTime(conversation.updated_at)}
-              </p>
-            </div>
-            {conversation.pinned && <Pin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+    <div
+      className={cn(
+        'group flex items-center gap-1 w-full px-2 py-2 rounded-lg text-left transition-colors',
+        'hover:bg-accent',
+        isActive ? 'bg-accent' : '',
+        conversation.archived && 'opacity-60'
+      )}
+    >
+      <button
+        onClick={() => onSelect(conversation.id)}
+        className="flex-1 min-w-0 text-left"
+      >
+        <div className="flex items-start gap-2 min-w-0">
+          <div className="flex-1 min-w-0">
+            {isRenaming ? (
+              <input
+                type="text"
+                value={renameValue}
+                onChange={(e) => onRenameChange(e.target.value)}
+                onKeyDown={(e) => onKeyDown(e, conversation.id)}
+                onBlur={() => onRenameConfirm(conversation.id)}
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+                className="w-full px-1 py-0.5 text-sm border border-input rounded bg-background outline-none"
+              />
+            ) : (
+              <p className="truncate text-sm font-medium">{conversation.title}</p>
+            )}
+            <p className="truncate text-xs text-muted-foreground">
+              {formatRelativeTime(conversation.updated_at)}
+            </p>
           </div>
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={4}>
+          {conversation.pinned && <Pin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+        </div>
+      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            aria-label="Conversation menu"
+            className="flex-shrink-0 p-1 rounded hover:bg-background text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" sideOffset={4}>
         <DropdownMenuItem onClick={() => onRename(conversation)}>
           <Edit2 className="h-3.5 w-3.5" />
           Rename
@@ -346,8 +358,9 @@ function ConversationItem({
           <Trash2 className="h-3.5 w-3.5" />
           Delete
         </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   )
 }
 

@@ -138,18 +138,27 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
     }
   }
 
+  const [convLoading, setConvLoading] = useState(false)
+  const [convError, setConvError] = useState('')
+
   const fetchMessages = async (conversationId: string) => {
+    setConvLoading(true)
+    setConvError('')
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
+      if (error) throw error
       if (data) setMessages(data)
       return data as Message[] | null
     } catch (error) {
       console.error('Failed to fetch messages:', error)
+      setConvError('โหลดข้อความไม่สำเร็จ กรุณาลองใหม่')
       return null
+    } finally {
+      setConvLoading(false)
     }
   }
 
@@ -724,10 +733,24 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
         <main className="flex-1 overflow-hidden relative">
           <ScrollArea className="h-full p-4">
             <div ref={chatContainerRef} className="flex flex-col items-stretch max-w-3xl mx-auto w-full gap-2 px-1">
-              {messages.length === 0 && !currentConversationId && (
+              {messages.length === 0 && !currentConversationId && !convLoading && !convError && (
                 <div className="text-center py-12 text-muted-foreground">
                   <h3 className="text-lg font-medium mb-2">Welcome to Family AI</h3>
                   <p className="text-sm">Start a new chat to begin</p>
+                </div>
+              )}
+              {convLoading && messages.length === 0 && (
+                <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm">กำลังโหลดข้อความ...</span>
+                </div>
+              )}
+              {convError && messages.length === 0 && (
+                <div className="flex flex-col items-center gap-3 py-12 text-center">
+                  <p className="text-sm text-destructive">{convError}</p>
+                  <Button variant="outline" size="sm" onClick={() => currentConversationId && fetchMessages(currentConversationId)}>
+                    ลองใหม่
+                  </Button>
                 </div>
               )}
               {messages.map((message) => (
