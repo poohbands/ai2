@@ -151,7 +151,7 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
       if (error) throw error
-      console.log('[debug fetchMessages]', conversationId.slice(0, 8), 'rows:', (data || []).map((r) => `${r.role}:${String(r.id).slice(0, 4)}:${String(r.content).slice(0, 20)}`))
+      console.log('[debug fetchMessages]', conversationId.slice(0, 8), 'rows:', ((data || []) as Message[]).map((r: Message) => `${r.role}:${String(r.id).slice(0, 4)}:${String(r.content).slice(0, 20)}`))
       if (data) setMessages(data)
       return data as Message[] | null
     } catch (error) {
