@@ -53,7 +53,7 @@ export function MessageComponent({ message, isStreaming, onRegenerate, onEdit, o
           className={cn(
             'px-4 py-2.5 text-[15px] leading-relaxed break-words',
             isUser
-              ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-md max-w-full'
+              ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 rounded-2xl rounded-br-md max-w-full'
               : 'w-full text-foreground'
           )}
         >
