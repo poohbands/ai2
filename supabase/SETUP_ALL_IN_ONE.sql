@@ -476,3 +476,21 @@ CREATE POLICY "Users can read own files" ON storage.objects
 FOR SELECT USING (bucket_id = 'chat-files' AND auth.uid()::text = (storage.foldername(name))[1]);
 CREATE POLICY "Users can delete own files" ON storage.objects
 FOR DELETE USING (bucket_id = 'chat-files' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- ========== App Settings: menu_features & global configs ==========
+CREATE TABLE IF NOT EXISTS public.app_settings (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read on app_settings" ON public.app_settings;
+CREATE POLICY "Allow public read on app_settings" ON public.app_settings FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow admin write on app_settings" ON public.app_settings;
+CREATE POLICY "Allow admin write on app_settings" ON public.app_settings FOR ALL
+USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
+
+INSERT INTO public.app_settings (key, value)
+VALUES ('menu_features', '{"web": true, "research": true, "kb": true, "compare": true, "image": true, "prompts": true}'::jsonb)
+ON CONFLICT (key) DO NOTHING;

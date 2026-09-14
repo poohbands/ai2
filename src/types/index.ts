@@ -208,3 +208,21 @@ export interface AdminUser {
   request_count: number
   last_active: string | null
 }
+
+export interface MenuFeatures {
+  web: boolean
+  research: boolean
+  kb: boolean
+  compare: boolean
+  image: boolean
+  prompts: boolean
+}
+
+export const DEFAULT_MENU_FEATURES: MenuFeatures = {
+  web: true,
+  research: true,
+  kb: true,
+  compare: true,
+  image: true,
+  prompts: true,
+}

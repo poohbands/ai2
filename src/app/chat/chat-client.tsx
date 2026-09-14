@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Profile, Conversation, Message, Model, Attachment, KnowledgeBase, PromptItem } from '@/types'
+import { Profile, Conversation, Message, Model, Attachment, KnowledgeBase, PromptItem, MenuFeatures, DEFAULT_MENU_FEATURES } from '@/types'
 import { Sidebar, MobileSidebarTrigger, MobileSidebarOverlay } from '@/components/sidebar/sidebar'
 import { ChatInput } from '@/components/chat/chat-input'
 import { ModelSelector } from '@/components/chat/model-selector'
@@ -65,6 +65,7 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
   const [prompts, setPrompts] = useState<PromptItem[]>([])
   const [promptId, setPromptId] = useState<string>('')
   const [compareModel, setCompareModel] = useState<string>('')
+  const [features, setFeatures] = useState<MenuFeatures>(DEFAULT_MENU_FEATURES)
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     if (typeof window === 'undefined') return 300
     const saved = Number(window.localStorage.getItem('sidebar-width'))
@@ -175,10 +176,31 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
     }
   }
 
+  const fetchFeatures = async () => {
+    try {
+      const res = await fetch('/api/features')
+      if (res.ok) {
+        const d = await res.json()
+        if (d?.features) {
+          setFeatures(d.features)
+          if (!d.features.web) setWebSearch(false)
+          if (!d.features.research) setModeResearch(false)
+          if (!d.features.kb) setModeKb(false)
+          if (!d.features.compare) setModeCompare(false)
+          if (!d.features.image) setModeImage(false)
+          if (!d.features.prompts) setPromptId('')
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch features:', error)
+    }
+  }
+
   useEffect(() => {
     fetchModels()
     fetchConversations()
     fetchAssistData()
+    fetchFeatures()
     setLoading(false)
   }, [userId])
 
@@ -624,11 +646,11 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
     )
   }
 
-  const activeStatusText = webSearch
+  const activeStatusText = (features.web && webSearch)
     ? 'กำลังค้นหาข้อมูลจากอินเทอร์เน็ต...'
-    : modeKb
+    : (features.kb && modeKb)
     ? 'กำลังค้นหาข้อมูลในคลังความรู้ (KB)...'
-    : modeResearch
+    : (features.research && modeResearch)
     ? 'กำลังค้นคว้าและวิเคราะห์เชิงลึก...'
     : undefined
 
@@ -671,71 +693,87 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
             disabled={generating}
             className="flex-1 min-w-[160px] max-w-xs"
           />
-          <Button variant={webSearch ? 'default' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => setWebSearch((v) => !v)} title="ค้นเว็บก่อนตอบ (ใช้ร่วมกับแชตปกติได้)">
-            <Globe className="h-3.5 w-3.5 mr-1" />Web
-          </Button>
-          <Button variant={modeResearch ? 'default' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => setModeResearch((v) => !v)} title="รายงาน Deep Research ตอบในแชตนี้เลย">
-            <Microscope className="h-3.5 w-3.5 mr-1" />Research
-          </Button>
-          <Button variant={modeKb ? 'default' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => setModeKb((v) => !v)} title="ดึงความรู้จาก Knowledge Base มาตอบ">
-            <BookOpen className="h-3.5 w-3.5 mr-1" />KB
-          </Button>
-          {modeKb && (
-            <Select value={kbId} onValueChange={setKbId}>
-              <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue placeholder="คลัง" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">ทุกคลัง</SelectItem>
-                {kbList.map((k) => <SelectItem key={k.id} value={k.id}>{k.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          {features.web && (
+            <Button variant={webSearch ? 'default' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => setWebSearch((v) => !v)} title="ค้นเว็บก่อนตอบ (ใช้ร่วมกับแชตปกติได้)">
+              <Globe className="h-3.5 w-3.5 mr-1" />Web
+            </Button>
           )}
-          <Button variant={modeCompare ? 'default' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => {
-            const next = !modeCompare
-            setModeCompare(next)
-            if (next && !compareModel) {
-              const other = models.find((m) => m.id !== selectedModel && m.enabled)
-              if (other) setCompareModel(other.id)
-            }
-          }} title="เทียบคำตอบ 2 โมเดลในแชตนี้เลย">
-            <Columns2 className="h-3.5 w-3.5 mr-1" />Compare
-          </Button>
-          {modeCompare && (
-            <Select value={compareModel} onValueChange={setCompareModel}>
-              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue placeholder="คู่เทียบ" /></SelectTrigger>
-              <SelectContent>
-                {models.filter((m) => m.id !== selectedModel && m.enabled).map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.display_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {features.research && (
+            <Button variant={modeResearch ? 'default' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => setModeResearch((v) => !v)} title="รายงาน Deep Research ตอบในแชตนี้เลย">
+              <Microscope className="h-3.5 w-3.5 mr-1" />Research
+            </Button>
           )}
-          <Button variant={modeImage ? 'default' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => setModeImage((v) => !v)} title="สร้างภาพจากข้อความในแชตนี้เลย">
-            <ImageIcon className="h-3.5 w-3.5 mr-1" />Image
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant={promptId ? 'default' : 'outline'} size="sm" className="h-8 text-xs" title="เลือกพร้อมท์เสริมมาตอบ">
-                <ScrollText className="h-3.5 w-3.5 mr-1" />Prompts{promptId ? ' •' : ''}
+          {features.kb && (
+            <>
+              <Button variant={modeKb ? 'default' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => setModeKb((v) => !v)} title="ดึงความรู้จาก Knowledge Base มาตอบ">
+                <BookOpen className="h-3.5 w-3.5 mr-1" />KB
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64 max-h-[300px] overflow-auto">
-              <DropdownMenuItem onClick={() => setPromptId('')}>
-                <span className="text-muted-foreground">ไม่ใช้พร้อมท์</span>
-                {!promptId && <Check className="h-3.5 w-3.5 ml-auto" />}
-              </DropdownMenuItem>
-              {prompts.map((p) => (
-                <DropdownMenuItem key={p.id} onClick={() => setPromptId(promptId === p.id ? '' : p.id)}>
-                  <span className="truncate">{p.title}</span>
-                  {promptId === p.id && <Check className="h-3.5 w-3.5 ml-auto flex-shrink-0" />}
-                </DropdownMenuItem>
-              ))}
-              {prompts.length === 0 && (
-                <DropdownMenuItem disabled>
-                  <span className="text-muted-foreground text-xs">ยังไม่มีพร้อมท์ — เพิ่มที่หน้า Prompts</span>
-                </DropdownMenuItem>
+              {modeKb && (
+                <Select value={kbId} onValueChange={setKbId}>
+                  <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue placeholder="คลัง" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">ทุกคลัง</SelectItem>
+                    {kbList.map((k) => <SelectItem key={k.id} value={k.id}>{k.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </>
+          )}
+          {features.compare && (
+            <>
+              <Button variant={modeCompare ? 'default' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => {
+                const next = !modeCompare
+                setModeCompare(next)
+                if (next && !compareModel) {
+                  const other = models.find((m) => m.id !== selectedModel && m.enabled)
+                  if (other) setCompareModel(other.id)
+                }
+              }} title="เทียบคำตอบ 2 โมเดลในแชตนี้เลย">
+                <Columns2 className="h-3.5 w-3.5 mr-1" />Compare
+              </Button>
+              {modeCompare && (
+                <Select value={compareModel} onValueChange={setCompareModel}>
+                  <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue placeholder="คู่เทียบ" /></SelectTrigger>
+                  <SelectContent>
+                    {models.filter((m) => m.id !== selectedModel && m.enabled).map((m) => (
+                      <SelectItem key={m.id} value={m.id}>{m.display_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </>
+          )}
+          {features.image && (
+            <Button variant={modeImage ? 'default' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => setModeImage((v) => !v)} title="สร้างภาพจากข้อความในแชตนี้เลย">
+              <ImageIcon className="h-3.5 w-3.5 mr-1" />Image
+            </Button>
+          )}
+          {features.prompts && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant={promptId ? 'default' : 'outline'} size="sm" className="h-8 text-xs" title="เลือกพร้อมท์เสริมมาตอบ">
+                  <ScrollText className="h-3.5 w-3.5 mr-1" />Prompts{promptId ? ' •' : ''}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 max-h-[300px] overflow-auto">
+                <DropdownMenuItem onClick={() => setPromptId('')}>
+                  <span className="text-muted-foreground">ไม่ใช้พร้อมท์</span>
+                  {!promptId && <Check className="h-3.5 w-3.5 ml-auto" />}
+                </DropdownMenuItem>
+                {prompts.map((p) => (
+                  <DropdownMenuItem key={p.id} onClick={() => setPromptId(promptId === p.id ? '' : p.id)}>
+                    <span className="truncate">{p.title}</span>
+                    {promptId === p.id && <Check className="h-3.5 w-3.5 ml-auto flex-shrink-0" />}
+                  </DropdownMenuItem>
+                ))}
+                {prompts.length === 0 && (
+                  <DropdownMenuItem disabled>
+                    <span className="text-muted-foreground text-xs">ยังไม่มีพร้อมท์ — เพิ่มที่หน้า Prompts</span>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           {profile.role === 'admin' && (
             <Button
               variant="ghost"
