@@ -225,4 +225,25 @@ export const DEFAULT_MENU_FEATURES: MenuFeatures = {
   compare: true,
   image: true,
   prompts: true,
-}
+}
+
+export interface MaintenanceSettings {
+  enabled: boolean
+  mode: 'full' | 'notice'
+  title: string
+  message: string
+  estimated_end_time?: string
+  allow_admins: boolean
+  updated_at?: string
+  updated_by?: string
+}
+
+export const DEFAULT_MAINTENANCE_SETTINGS: MaintenanceSettings = {
+  enabled: false,
+  mode: 'notice',
+  title: 'ระบบกำลังปิดปรับปรุงชั่วคราว',
+  message: 'ขออภัยในความไม่สะดวก ระบบกำลังดำเนินการบำรุงรักษาและอัปเกรดเพื่อเพิ่มประสิทธิภาพการใช้งาน',
+  estimated_end_time: '',
+  allow_admins: true,
+}
+

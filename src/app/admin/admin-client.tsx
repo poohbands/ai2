@@ -11,15 +11,17 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Users, Activity, DollarSign, TrendingUp, KeyRound, Boxes, Wrench, UserCheck, UserX, Shield, ChevronDown, ChevronUp, ChevronLeft, SlidersHorizontal } from 'lucide-react'
+import { Loader2, Users, Activity, DollarSign, TrendingUp, KeyRound, Boxes, Wrench, UserCheck, UserX, Shield, ChevronDown, ChevronUp, ChevronLeft, SlidersHorizontal, ShieldAlert } from 'lucide-react'
 import { cn, formatCost, formatRelativeTime } from '@/lib/utils'
 import { AdminStats, AdminUser } from '@/types'
 import { ProvidersTab } from '@/components/admin/providers-tab'
 import { ModelsTab } from '@/components/admin/models-tab'
 import { DebugTab } from '@/components/admin/debug-tab'
 import { FeaturesTab } from '@/components/admin/features-tab'
+import { MaintenanceTab } from '@/components/admin/maintenance-tab'
 
-type AdminTab = 'users' | 'models' | 'providers' | 'features' | 'debug'
+type AdminTab = 'users' | 'models' | 'providers' | 'features' | 'maintenance' | 'debug'
+
 
 export function AdminClient() {
   const router = useRouter()
@@ -152,6 +154,10 @@ export function AdminClient() {
             <SlidersHorizontal className="h-4 w-4" />
             Menu Features
           </Button>
+          <Button variant={tab === 'maintenance' ? 'default' : 'ghost'} className="w-full justify-start gap-2" onClick={() => setTab('maintenance')}>
+            <ShieldAlert className="h-4 w-4" />
+            Service Maintenance
+          </Button>
           <Button variant={tab === 'debug' ? 'default' : 'ghost'} className="w-full justify-start gap-2" onClick={() => setTab('debug')}>
             <Wrench className="h-4 w-4" />
             System Check
@@ -167,6 +173,31 @@ export function AdminClient() {
 
       <main className="flex-1 overflow-auto p-6">
         <div className="max-w-6xl mx-auto space-y-6">
+          {/* Mobile Tab Navigation */}
+          <div className="lg:hidden flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-border">
+            <Button variant="ghost" size="sm" className="h-8 text-xs shrink-0" onClick={() => router.push('/chat')}>
+              <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Chat
+            </Button>
+            <Button variant={tab === 'users' ? 'default' : 'outline'} size="sm" className="h-8 text-xs shrink-0" onClick={() => setTab('users')}>
+              Users
+            </Button>
+            <Button variant={tab === 'models' ? 'default' : 'outline'} size="sm" className="h-8 text-xs shrink-0" onClick={() => setTab('models')}>
+              Models
+            </Button>
+            <Button variant={tab === 'providers' ? 'default' : 'outline'} size="sm" className="h-8 text-xs shrink-0" onClick={() => setTab('providers')}>
+              Providers
+            </Button>
+            <Button variant={tab === 'features' ? 'default' : 'outline'} size="sm" className="h-8 text-xs shrink-0" onClick={() => setTab('features')}>
+              Features
+            </Button>
+            <Button variant={tab === 'maintenance' ? 'default' : 'outline'} size="sm" className="h-8 text-xs shrink-0" onClick={() => setTab('maintenance')}>
+              Maintenance
+            </Button>
+            <Button variant={tab === 'debug' ? 'default' : 'outline'} size="sm" className="h-8 text-xs shrink-0" onClick={() => setTab('debug')}>
+              System Check
+            </Button>
+          </div>
+
           <div>
             <h1 className="text-3xl font-bold">Admin Dashboard</h1>
             <p className="text-muted-foreground">
@@ -174,6 +205,7 @@ export function AdminClient() {
               {tab === 'models' && 'Enable models and assign provider keys'}
               {tab === 'providers' && 'Manage AI provider API keys'}
               {tab === 'features' && 'Control which shortcut buttons appear in the chat header'}
+              {tab === 'maintenance' && 'Configure service maintenance mode, announcement notices, and system access'}
               {tab === 'debug' && 'Connection and environment diagnostics'}
             </p>
           </div>
@@ -357,6 +389,7 @@ export function AdminClient() {
           {tab === 'models' && <ModelsTab />}
           {tab === 'providers' && <ProvidersTab />}
           {tab === 'features' && <FeaturesTab />}
+          {tab === 'maintenance' && <MaintenanceTab />}
           {tab === 'debug' && <DebugTab />}
         </div>
       </main>

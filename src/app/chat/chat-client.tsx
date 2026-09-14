@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Profile, Conversation, Message, Model, Attachment, KnowledgeBase, PromptItem, MenuFeatures, DEFAULT_MENU_FEATURES } from '@/types'
+import { Profile, Conversation, Message, Model, Attachment, KnowledgeBase, PromptItem, MenuFeatures, DEFAULT_MENU_FEATURES, MaintenanceSettings, DEFAULT_MAINTENANCE_SETTINGS } from '@/types'
 import { Sidebar, MobileSidebarTrigger, MobileSidebarOverlay } from '@/components/sidebar/sidebar'
 import { ChatInput } from '@/components/chat/chat-input'
 import { ModelSelector } from '@/components/chat/model-selector'
@@ -35,7 +35,12 @@ import {
   Image as ImageIcon,
   ScrollText,
   Check,
+  AlertTriangle,
+  Wrench,
+  Clock,
+  RefreshCw,
 } from 'lucide-react'
+
 
 interface ChatClientProps {
   userId: string
@@ -66,7 +71,10 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
   const [promptId, setPromptId] = useState<string>('')
   const [compareModel, setCompareModel] = useState<string>('')
   const [features, setFeatures] = useState<MenuFeatures>(DEFAULT_MENU_FEATURES)
+  const [maintenance, setMaintenance] = useState<MaintenanceSettings>(DEFAULT_MAINTENANCE_SETTINGS)
+  const [dismissNotice, setDismissNotice] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+
     if (typeof window === 'undefined') return 300
     const saved = Number(window.localStorage.getItem('sidebar-width'))
     return Number.isFinite(saved) && saved >= 240 && saved <= 520 ? saved : 300
@@ -196,13 +204,30 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
     }
   }
 
+  const fetchMaintenance = async () => {
+
+    try {
+      const res = await fetch('/api/maintenance')
+      if (res.ok) {
+        const d = await res.json()
+        if (d?.maintenance) {
+          setMaintenance(d.maintenance)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch maintenance status:', error)
+    }
+  }
+
   useEffect(() => {
     fetchModels()
     fetchConversations()
     fetchAssistData()
     fetchFeatures()
+    fetchMaintenance()
     setLoading(false)
   }, [userId])
+
 
   useEffect(() => {
     if (currentConversationId) {
@@ -787,53 +812,119 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
           )}
         </header>
 
-        <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-          <ScrollArea className="flex-1 min-h-0">
-            <div ref={chatContainerRef} className="flex flex-col items-stretch max-w-3xl mx-auto w-full gap-2 p-4 pt-8 pb-4">
-              {messages.length === 0 && !currentConversationId && !convLoading && !convError && (
-                <div className="text-center py-12 text-muted-foreground">
-                  <h3 className="text-lg font-medium mb-2">Welcome to Family AI</h3>
-                  <p className="text-sm">Start a new chat to begin</p>
-                </div>
+        {/* Maintenance Banners */}
+        {maintenance.enabled && maintenance.mode === 'notice' && !dismissNotice && (
+          <div className="bg-amber-500/10 border-b border-amber-500/30 px-3.5 py-2 text-amber-900 dark:text-amber-200 text-xs flex items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-2 overflow-hidden flex-1">
+              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+              <span className="font-semibold shrink-0">{maintenance.title || 'ประกาศปิดปรับปรุงระบบ'}:</span>
+              <span className="truncate">{maintenance.message}</span>
+              {maintenance.estimated_end_time && (
+                <span className="shrink-0 bg-amber-500/20 px-2 py-0.5 rounded-full font-medium">
+                  {maintenance.estimated_end_time}
+                </span>
               )}
-              {convLoading && messages.length === 0 && (
-                <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="text-sm">กำลังโหลดข้อความ...</span>
-                </div>
-              )}
-              {convError && messages.length === 0 && (
-                <div className="flex flex-col items-center gap-3 py-12 text-center">
-                  <p className="text-sm text-destructive">{convError}</p>
-                  <Button variant="outline" size="sm" onClick={() => currentConversationId && fetchMessages(currentConversationId)}>
-                    ลองใหม่
-                  </Button>
-                </div>
-              )}
-              {messages.map((message) => (
-                <MessageComponent
-                  key={message.id}
-                  message={message}
-                  isStreaming={generating && message.id.startsWith('temp-')}
-                  statusText={activeStatusText}
-                  onRegenerate={message.role === 'assistant' ? () => handleRegenerate(message.id) : undefined}
-                  onEdit={message.role === 'user' ? (content) => handleEdit(message.id, content) : undefined}
-                  onCopy={handleCopy}
-                />
-              ))}
-              <div ref={messagesEndRef} />
             </div>
-          </ScrollArea>
+            <button
+              onClick={() => setDismissNotice(true)}
+              className="text-muted-foreground hover:text-foreground text-xs shrink-0 px-1 font-medium"
+              title="ปิดการแจ้งเตือน"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
-          <ChatInput
-            onSend={handleSend}
-            onStop={handleStop}
-            disabled={generating}
-            isGenerating={generating}
-            statusText={activeStatusText}
-          />
-        </main>
+        {maintenance.enabled && maintenance.mode === 'full' && profile.role === 'admin' && (
+          <div className="bg-rose-500/10 border-b border-rose-500/30 px-3.5 py-1.5 text-rose-700 dark:text-rose-300 text-xs flex items-center justify-between shrink-0">
+            <span className="font-semibold flex items-center gap-1.5">
+              <Wrench className="h-3.5 w-3.5 text-rose-600" />
+              โหมดปิดปรับปรุงระบบกำลังเปิดอยู่ (คุณกำลังเข้าใช้งานในฐานะ Admin Bypass)
+            </span>
+            <button
+              onClick={() => router.push('/admin')}
+              className="underline font-medium hover:text-rose-800 shrink-0 ml-2"
+            >
+              จัดการใน Admin
+            </button>
+          </div>
+        )}
+
+        {maintenance.enabled && maintenance.mode === 'full' && (profile.role !== 'admin' || !maintenance.allow_admins) ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+            <div className="max-w-md w-full p-8 rounded-2xl border border-rose-500/30 bg-card shadow-lg space-y-5">
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-600">
+                <Wrench className="h-8 w-8 animate-pulse" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-xl font-bold">{maintenance.title || 'ระบบกำลังปิดปรับปรุงชั่วคราว'}</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {maintenance.message || 'ขออภัยในความไม่สะดวก ระบบกำลังดำเนินการบำรุงรักษาและอัปเกรดเพื่อเพิ่มประสิทธิภาพ'}
+                </p>
+              </div>
+              {maintenance.estimated_end_time && (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted border text-xs font-medium text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5 text-primary" />
+                  คาดว่าจะเปิดให้บริการเวลา: <span className="text-foreground font-semibold">{maintenance.estimated_end_time}</span>
+                </div>
+              )}
+              <div className="pt-2">
+                <Button onClick={() => window.location.reload()} variant="outline" size="sm" className="gap-2 text-xs">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  ลองใหม่อีกครั้ง (Refresh)
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+            <ScrollArea className="flex-1 min-h-0">
+              <div ref={chatContainerRef} className="flex flex-col items-stretch max-w-3xl mx-auto w-full gap-2 p-4 pt-8 pb-4">
+                {messages.length === 0 && !currentConversationId && !convLoading && !convError && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <h3 className="text-lg font-medium mb-2">Welcome to Family AI</h3>
+                    <p className="text-sm">Start a new chat to begin</p>
+                  </div>
+                )}
+                {convLoading && messages.length === 0 && (
+                  <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="text-sm">กำลังโหลดข้อความ...</span>
+                  </div>
+                )}
+                {convError && messages.length === 0 && (
+                  <div className="flex flex-col items-center gap-3 py-12 text-center">
+                    <p className="text-sm text-destructive">{convError}</p>
+                    <Button variant="outline" size="sm" onClick={() => currentConversationId && fetchMessages(currentConversationId)}>
+                      ลองใหม่
+                    </Button>
+                  </div>
+                )}
+                {messages.map((message) => (
+                  <MessageComponent
+                    key={message.id}
+                    message={message}
+                    isStreaming={generating && message.id.startsWith('temp-')}
+                    statusText={activeStatusText}
+                    onRegenerate={message.role === 'assistant' ? () => handleRegenerate(message.id) : undefined}
+                    onEdit={message.role === 'user' ? (content) => handleEdit(message.id, content) : undefined}
+                    onCopy={handleCopy}
+                  />
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+            </ScrollArea>
+
+            <ChatInput
+              onSend={handleSend}
+              onStop={handleStop}
+              disabled={generating}
+              isGenerating={generating}
+              statusText={activeStatusText}
+            />
+          </main>
+        )}
       </div>
     </div>
   )
-}
+}

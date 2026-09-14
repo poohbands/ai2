@@ -12,6 +12,7 @@ import { getFileUrl } from '@/lib/files/files'
 import { webSearch, formatSearchContext } from '@/lib/search/search'
 import { retrieveContext, retrieveAcrossKbs } from '@/lib/rag/rag'
 import { createEmbedding } from '@/lib/rag/embeddings'
+import { getMaintenanceSettings } from '@/lib/settings/maintenance'
 import { Model } from '@/types'
 
 export const runtime = 'nodejs'
@@ -118,6 +119,21 @@ export async function POST(request: NextRequest) {
       const reason = profile && !profile.is_approved ? 'Account pending admin approval' : 'Account disabled'
       return NextResponse.json({ error: reason }, { status: 403 })
     }
+
+    const maintenance = await getMaintenanceSettings()
+    if (maintenance.enabled && maintenance.mode === 'full') {
+      const isAdmin = profile.role === 'admin'
+      if (!isAdmin || !maintenance.allow_admins) {
+        const timeMsg = maintenance.estimated_end_time ? ` (คาดว่าจะเปิดให้บริการเวลา: ${maintenance.estimated_end_time})` : ''
+        return NextResponse.json(
+          {
+            error: `${maintenance.title || 'ระบบกำลังปิดปรับปรุงชั่วคราว'}: ${maintenance.message || 'ขออภัยในความไม่สะดวก'}${timeMsg}`,
+          },
+          { status: 503 }
+        )
+      }
+    }
+
 
     const rateLimitResult = await rateLimitEndpoint(user.id, 'chat')
     if (!rateLimitResult.allowed) {
