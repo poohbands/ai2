@@ -209,6 +209,56 @@ export interface AdminUser {
   last_active: string | null
 }
 
+export interface UserUsageSummary {
+  currentMonthCost: number
+  currentMonthRequests: number
+  currentMonthTokens: number
+  allTimeCost: number
+  allTimeRequests: number
+  allTimeInputTokens: number
+  allTimeOutputTokens: number
+}
+
+export interface UserModelUsage {
+  model: string
+  modelName: string
+  requestCount: number
+  inputTokens: number
+  outputTokens: number
+  totalCost: number
+}
+
+export interface UserTypeUsage {
+  requestType: string
+  count: number
+  totalCost: number
+}
+
+export interface UserConversationSummary {
+  id: string
+  title: string
+  model: string
+  messageCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface UserDetailData {
+  user: AdminUser & {
+    createdAt: string
+    updatedAt: string
+    avatarUrl: string | null
+    approvedAt: string | null
+    approvedBy: string | null
+  }
+  summary: UserUsageSummary
+  modelBreakdown: UserModelUsage[]
+  typeBreakdown: UserTypeUsage[]
+  recentLogs: UsageLog[]
+  conversations: UserConversationSummary[]
+}
+
+
 export interface MenuFeatures {
   web: boolean
   research: boolean

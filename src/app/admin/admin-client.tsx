@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Users, Activity, DollarSign, TrendingUp, KeyRound, Boxes, Wrench, UserCheck, UserX, Shield, ChevronDown, ChevronUp, ChevronLeft, SlidersHorizontal, ShieldAlert } from 'lucide-react'
+import { Loader2, Users, Activity, DollarSign, TrendingUp, KeyRound, Boxes, Wrench, UserCheck, UserX, Shield, ChevronDown, ChevronUp, ChevronLeft, SlidersHorizontal, ShieldAlert, BarChart2, Eye } from 'lucide-react'
 import { cn, formatCost, formatRelativeTime } from '@/lib/utils'
 import { AdminStats, AdminUser } from '@/types'
 import { ProvidersTab } from '@/components/admin/providers-tab'
@@ -19,6 +19,7 @@ import { ModelsTab } from '@/components/admin/models-tab'
 import { DebugTab } from '@/components/admin/debug-tab'
 import { FeaturesTab } from '@/components/admin/features-tab'
 import { MaintenanceTab } from '@/components/admin/maintenance-tab'
+import { UserDetailModal } from '@/components/admin/user-detail-modal'
 
 type AdminTab = 'users' | 'models' | 'providers' | 'features' | 'maintenance' | 'debug'
 
@@ -34,6 +35,9 @@ export function AdminClient() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [detailModalOpen, setDetailModalOpen] = useState(false)
+
 
   const fetchStats = async () => {
     try {
@@ -290,11 +294,18 @@ export function AdminClient() {
                     {users.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell>
-                          <div>
-                            <p className="font-medium">
+                          <div
+                            className="cursor-pointer group"
+                            onClick={() => {
+                              setSelectedUserId(user.id)
+                              setDetailModalOpen(true)
+                            }}
+                            title="คลิกเพื่อดูรายละเอียดการใช้งาน"
+                          >
+                            <p className="font-medium group-hover:text-primary group-hover:underline transition-colors flex items-center gap-1.5">
                               {user.display_name || user.email}
                               {!user.is_approved && (
-                                <span className="ml-2 inline-block rounded-full bg-amber-100 text-amber-800 text-xs px-2 py-0.5">
+                                <span className="inline-block rounded-full bg-amber-100 text-amber-800 text-xs px-2 py-0.5">
                                   รออนุมัติ
                                 </span>
                               )}
@@ -347,9 +358,22 @@ export function AdminClient() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1 text-xs font-medium"
+                              onClick={() => {
+                                setSelectedUserId(user.id)
+                                setDetailModalOpen(true)
+                              }}
+                            >
+                              <BarChart2 className="h-3.5 w-3.5 text-primary" />
+                              รายละเอียด
+                            </Button>
                             {!user.is_approved && (
                               <Button
                                 size="sm"
+                                className="h-8 text-xs"
                                 onClick={() => handleUpdateUser(user.id, { is_approved: true } as Partial<AdminUser>)}
                                 disabled={actionLoading === user.id}
                               >
@@ -358,10 +382,17 @@ export function AdminClient() {
                             )}
                             <AlertDialog open={deleteDialogOpen && userToDelete?.id === user.id} onOpenChange={setDeleteDialogOpen}>
                               <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" disabled={actionLoading === user.id}>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  disabled={actionLoading === user.id}
+                                  onClick={() => confirmDelete(user)}
+                                >
                                   <UserX className="h-4 w-4" />
                                 </Button>
                               </AlertDialogTrigger>
+
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Delete User</AlertDialogTitle>
@@ -393,6 +424,20 @@ export function AdminClient() {
           {tab === 'debug' && <DebugTab />}
         </div>
       </main>
+
+      {/* User Usage Details Modal */}
+      <UserDetailModal
+        userId={selectedUserId}
+        isOpen={detailModalOpen}
+        onClose={() => {
+          setDetailModalOpen(false)
+          setSelectedUserId(null)
+        }}
+        onUserUpdated={() => {
+          fetchUsers()
+          fetchStats()
+        }}
+      />
     </div>
   )
-}
+}
