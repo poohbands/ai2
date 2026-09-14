@@ -1,15 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import {
   Globe,
   Microscope,
   BookOpen,
   Columns2,
-  ImageIcon,
+  Image as ImageIcon,
   ScrollText,
   Loader2,
   CheckCircle2,
@@ -160,65 +161,65 @@ export function FeaturesTab() {
 
   if (loading) {
     return (
-      <div className= flex items-center justify-center py-16 text-muted-foreground>
-        <Loader2 className=h-6 w-6 animate-spin mr-2 />
+      <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin mr-2" />
         <span>กำลังโหลดการตั้งค่าเมนู...</span>
       </div>
     )
   }
 
   return (
-    <div className=space-y-6>
+    <div className="space-y-6">
       {/* Header Description & Save Status */}
-      <div className=flex flex-col sm:flex-row sm:items-center justify-between gap-4>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className=text-xl font-semibold flex items-center gap-2>
-            <SlidersHorizontal className=h-5 w-5 text-primary />
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <SlidersHorizontal className="h-5 w-5 text-primary" />
             เปิด-ปิดเมนูปุ่มลัดบนแถบแชต
           </h2>
-          <p className=text-sm text-muted-foreground mt-0.5>
+          <p className="text-sm text-muted-foreground mt-0.5">
             เลือกเปิดหรือปิดการแสดงผลของเมนูฟังก์ชันต่างๆ บนแถบด้านบนของห้องแชต (มีผลกับผู้ใช้งานทุกคนทันที)
           </p>
         </div>
 
-        <div className=flex items-center gap-2>
+        <div className="flex items-center gap-2">
           {saveStatus === 'saved' && (
-            <span className=inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-md>
-              <CheckCircle2 className=h-3.5 w-3.5 />
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-md">
+              <CheckCircle2 className="h-3.5 w-3.5" />
               บันทึกเรียบร้อย
             </span>
           )}
           {saveStatus === 'error' && (
-            <span className=inline-flex items-center gap-1.5 text-xs font-medium text-rose-600 bg-rose-500/10 px-2.5 py-1 rounded-md>
-              <AlertCircle className=h-3.5 w-3.5 />
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-600 bg-rose-500/10 px-2.5 py-1 rounded-md">
+              <AlertCircle className="h-3.5 w-3.5" />
               บันทึกไม่สำเร็จ ลองอีกครั้ง
             </span>
           )}
-          <Button variant=outline size=sm onClick={() => handleToggleAll(true)} disabled={updatingKey !== null}>
+          <Button variant="outline" size="sm" onClick={() => handleToggleAll(true)} disabled={updatingKey !== null}>
             เปิดทั้งหมด
           </Button>
-          <Button variant=outline size=sm onClick={() => handleToggleAll(false)} disabled={updatingKey !== null}>
+          <Button variant="outline" size="sm" onClick={() => handleToggleAll(false)} disabled={updatingKey !== null}>
             ปิดทั้งหมด
           </Button>
         </div>
       </div>
 
       {/* Live Preview */}
-      <Card className=border-dashed bg-muted/20>
-        <CardHeader className=pb-2>
-          <div className=flex items-center justify-between>
-            <CardTitle className=text-sm font-medium flex items-center gap-2 text-muted-foreground>
-              <Eye className=h-4 w-4 />
+      <Card className="border-dashed bg-muted/20">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+              <Eye className="h-4 w-4" />
               ตัวอย่างการแสดงผลบนแถบด้านบนห้องแชต (Live Preview)
             </CardTitle>
-            <span className=text-xs text-muted-foreground>
+            <span className="text-xs text-muted-foreground">
               เปิดอยู่ {Object.values(features).filter(Boolean).length} จาก {FEATURE_CONFIGS.length} เมนู
             </span>
           </div>
         </CardHeader>
         <CardContent>
-          <div className=p-3 bg-card border rounded-xl flex flex-wrap items-center gap-1.5 min-h-[52px]>
-            <div className=h-8 px-3 rounded-md bg-muted/60 border text-xs text-muted-foreground flex items-center>
+          <div className="p-3 bg-card border rounded-xl flex flex-wrap items-center gap-1.5 min-h-[52px]">
+            <div className="h-8 px-3 rounded-md bg-muted/60 border text-xs text-muted-foreground flex items-center">
               เลือกโมเดล AI
             </div>
 
@@ -227,15 +228,15 @@ export function FeaturesTab() {
               const Icon = item.icon
               if (!isEnabled) return null
               return (
-                <Button key={item.key} variant=outline size=sm className=h-8 text-xs pointer-events-none>
-                  <Icon className=h-3.5 w-3.5 mr-1 />
+                <Button key={item.key} variant="outline" size="sm" className="h-8 text-xs pointer-events-none">
+                  <Icon className="h-3.5 w-3.5 mr-1" />
                   {item.shortLabel}
                 </Button>
               )
             })}
 
             {Object.values(features).every((v) => !v) && (
-              <span className=text-xs text-muted-foreground italic px-2>
+              <span className="text-xs text-muted-foreground italic px-2">
                 (เมนูปุ่มลัดถูกปิดใช้งานทั้งหมด จะแสดงเฉพาะแถบเลือกโมเดล)
               </span>
             )}
@@ -244,7 +245,7 @@ export function FeaturesTab() {
       </Card>
 
       {/* Toggle Cards List */}
-      <div className=grid gap-3 sm:grid-cols-2>
+      <div className="grid gap-3 sm:grid-cols-2">
         {FEATURE_CONFIGS.map((item) => {
           const isEnabled = features[item.key]
           const isUpdating = updatingKey === item.key || updatingKey === 'all'
@@ -253,38 +254,51 @@ export function FeaturesTab() {
           return (
             <Card
               key={item.key}
-              className={	ransition-colors border }
+              className={cn(
+                'transition-colors border',
+                isEnabled ? 'bg-card border-border' : 'bg-muted/30 border-border/40 opacity-75'
+              )}
             >
-              <CardContent className=p-4>
-                <div className=flex items-start justify-between gap-3>
-                  <div className=flex items-start gap-3>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
                     <div
-                      className={p-2.5 rounded-xl border transition-colors }
+                      className={cn(
+                        'p-2.5 rounded-xl border transition-colors',
+                        isEnabled
+                          ? 'bg-primary/10 border-primary/20 text-primary'
+                          : 'bg-muted border-border/50 text-muted-foreground'
+                      )}
                     >
-                      <Icon className=h-5 w-5 />
+                      <Icon className="h-5 w-5" />
                     </div>
 
-                    <div className=space-y-1>
-                      <div className=flex items-center gap-2>
-                        <span className=font-semibold text-sm>{item.name}</span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm">{item.name}</span>
                         <span
-                          className={	ext-[11px] px-2 py-0.5 rounded-full font-medium }
+                          className={cn(
+                            'text-[11px] px-2 py-0.5 rounded-full font-medium',
+                            isEnabled
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                              : 'bg-muted text-muted-foreground'
+                          )}
                         >
                           {isEnabled ? 'เปิดใช้งาน' : 'ปิดอยู่'}
                         </span>
                       </div>
-                      <p className=text-xs text-muted-foreground leading-relaxed>{item.description}</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>
                     </div>
                   </div>
 
-                  <div className=flex items-center pt-1>
+                  <div className="flex items-center pt-1">
                     {isUpdating ? (
-                      <Loader2 className=h-4 w-4 animate-spin text-primary />
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
                     ) : (
                       <Switch
                         checked={isEnabled}
                         onCheckedChange={(checked) => handleToggle(item.key, checked)}
-                        title={เปิด/ปิด }
+                        title={`เปิด/ปิด ${item.name}`}
                       />
                     )}
                   </div>
