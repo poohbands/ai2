@@ -150,7 +150,7 @@ export function ChatInput({ onSend, onStop, disabled, isGenerating, placeholder 
   }
 
   return (
-    <div className={cn('border-t border-border p-4', isDragActive && 'bg-accent')} {...getRootProps()}>
+    <div className={cn('border-t border-border p-4 flex-shrink-0', isDragActive && 'bg-accent')} {...getRootProps()}>
       <input {...getInputProps()} type="file" multiple accept=".txt,.csv,.pdf,.docx,.xlsx,.png,.jpg,.jpeg,.webp" />
       <div className="flex items-end gap-2 max-w-4xl mx-auto">
         <div className="flex-1 flex items-center gap-2">
