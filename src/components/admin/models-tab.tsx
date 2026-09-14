@@ -14,11 +14,17 @@ import { formatPerMillion } from '@/lib/ai/providers/kob'
 
 interface LiveProvider {
   provider: { id: string; name: string; type: string; base_url: string }
-  models: Array<{ id: string; supportsVision: boolean; pricing: { input: number; output: number } | null }>
+  models: Array<{ id: string; supportsVision: boolean; supportsImage?: boolean; pricing: { input: number; output: number } | null }>
   error: string | null
 }
 
-const RENDER_LIMIT = 100
+const PAGE_SIZE = 100
+
+function pageNumbers(current: number, total: number): number[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const set = new Set([1, 2, current - 1, current, current + 1, total - 1, total])
+  return [...set].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b)
+}
 
 export function ModelsTab() {
   const [models, setModels] = useState<AdminModel[]>([])
@@ -37,6 +43,11 @@ export function ModelsTab() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [pages, setPages] = useState<Record<string, number>>({})
+
+  useEffect(() => {
+    setPages({})
+  }, [search, filterProvider])
 
   const load = async () => {
     setLoading(true)
@@ -142,11 +153,18 @@ export function ModelsTab() {
   const q = search.trim().toLowerCase()
   const visibleLive = live
     .filter((g) => filterProvider === 'all' || g.provider.id === filterProvider)
-    .map((g) => ({
-      ...g,
-      models: g.models.filter((m) => !q || m.id.toLowerCase().includes(q)).slice(0, RENDER_LIMIT),
-      total: g.models.filter((m) => !q || m.id.toLowerCase().includes(q)).length,
-    }))
+    .map((g) => {
+      const filtered = g.models.filter((m) => !q || m.id.toLowerCase().includes(q))
+      const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+      const page = Math.min(pages[g.provider.id] || 1, totalPages)
+      return {
+        ...g,
+        models: filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+        total: filtered.length,
+        page,
+        totalPages,
+      }
+    })
 
   const visibleModels = [...models]
     .filter((m) => {
@@ -236,6 +254,11 @@ export function ModelsTab() {
                         {m.supportsVision && <Eye className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
                         <span className="font-mono text-xs flex-1 truncate" title={m.id}>
                           {m.id}
+                          {m.supportsImage && (
+                            <span className="ml-1 inline-block rounded bg-purple-100 text-purple-800 font-sans text-[10px] px-1.5 py-0.5 align-middle">
+                              สร้างภาพ
+                            </span>
+                          )}
                           {m.pricing && (
                             <span className="text-muted-foreground font-sans">
                               {' '}• {formatPerMillion(m.pricing.input)} in / {formatPerMillion(m.pricing.output)} out
@@ -279,8 +302,37 @@ export function ModelsTab() {
                       </div>
                     )
                   })}
-                  {g.total > RENDER_LIMIT && (
-                    <p className="text-xs text-muted-foreground">แสดง {RENDER_LIMIT} จาก {g.total} — พิมพ์ค้นเพื่อหาโมเดลที่ต้องการ</p>
+                  {g.totalPages > 1 && (
+                    <div className="flex flex-wrap items-center gap-1 pt-2">
+                      <Button
+                        size="sm" variant="outline" className="h-7 text-xs"
+                        disabled={g.page <= 1}
+                        onClick={() => setPages((p) => ({ ...p, [g.provider.id]: g.page - 1 }))}
+                      >
+                        ‹
+                      </Button>
+                      {pageNumbers(g.page, g.totalPages).map((n) => (
+                        <Button
+                          key={n}
+                          size="sm"
+                          variant={n === g.page ? 'default' : 'outline'}
+                          className="h-7 min-w-7 text-xs px-2"
+                          onClick={() => setPages((p) => ({ ...p, [g.provider.id]: n }))}
+                        >
+                          {n}
+                        </Button>
+                      ))}
+                      <Button
+                        size="sm" variant="outline" className="h-7 text-xs"
+                        disabled={g.page >= g.totalPages}
+                        onClick={() => setPages((p) => ({ ...p, [g.provider.id]: g.page + 1 }))}
+                      >
+                        ›
+                      </Button>
+                      <span className="text-xs text-muted-foreground ml-1">
+                        หน้า {g.page}/{g.totalPages} ({g.total} โมเดล)
+                      </span>
+                    </div>
                   )}
                 </div>
               )}

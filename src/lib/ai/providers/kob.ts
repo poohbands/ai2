@@ -178,7 +178,7 @@ export class OpenAICompatibleProvider implements AIProvider {
     }
   }
 
-  async listModels(): Promise<Array<{ id: string; name: string; provider: string; supportsVision: boolean; pricing: { input: number; output: number } | null }>> {
+  async listModels(): Promise<Array<{ id: string; name: string; provider: string; supportsVision: boolean; supportsImage: boolean; pricing: { input: number; output: number } | null }>> {
     const response = await fetch(`${this.baseUrl}/models`, {
       headers: this.getHeaders(),
     }).catch((err) => this.handleError(err, 'list models'))
@@ -191,11 +191,12 @@ export class OpenAICompatibleProvider implements AIProvider {
       this.handleError(err, 'parse models response')
     )
 
-    return (data.data || []).map((model: { id: string; object: string; pricing?: Record<string, string> }) => ({
+    return (data.data || []).map((model: { id: string; object: string; pricing?: Record<string, string>; architecture?: { modality?: string } }) => ({
       id: model.id,
       name: model.id,
       provider: this.label,
       supportsVision: model.id.includes('vision') || model.id.includes('vl') || model.id.includes('gpt-4o') || model.id.includes('claude-3') || model.id.includes('gemini-1.5'),
+      supportsImage: isImageModel(model.id, model.architecture?.modality),
       pricing: parsePricing(model.pricing),
     }))
   }
@@ -255,6 +256,17 @@ function parsePricing(pricing?: Record<string, string>): { input: number; output
   const output = Number(rawOut)
   if (!Number.isFinite(input) || !Number.isFinite(output)) return null
   return { input, output }
+}
+
+/** Detect image-generation models from id patterns or OpenRouter modality (e.g. "text->image"). */
+function isImageModel(id: string, modality?: string): boolean {
+  const out = modality?.split('->')[1] || ''
+  if (out.includes('image')) return true
+  const lower = id.toLowerCase()
+  return lower.includes('dall-e') || lower.includes('stable-diffusion') || lower.includes('/flux') ||
+    lower.includes(':flux') || lower.includes('flux-') || lower.includes('sdxl') ||
+    lower.includes('midjourney') || lower.includes('imagen') || lower.includes('ideogram') ||
+    lower.includes('recraft') || lower.includes('gpt-image-1');
 }
 
 /** Format per-token cost as $/1M tokens, e.g. $0.55/1M. Exported for admin UI. */

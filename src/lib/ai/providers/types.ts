@@ -16,6 +16,7 @@ export interface AIModel {
   name: string
   provider: string
   supportsVision: boolean
+  supportsImage?: boolean
   pricing?: { input: number; output: number } | null
 }
 

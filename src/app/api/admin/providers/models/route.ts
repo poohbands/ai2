@@ -27,7 +27,7 @@ export async function GET() {
           const models = await client.listModels()
           return {
             provider: { id: p.id, name: p.name, type: p.type, base_url: p.base_url },
-            models: models.map((m) => ({ id: m.id, supportsVision: m.supportsVision, pricing: m.pricing || null })),
+            models: models.map((m) => ({ id: m.id, supportsVision: m.supportsVision, supportsImage: !!m.supportsImage, pricing: m.pricing || null })),
             error: null as string | null,
           }
         } catch (err) {
