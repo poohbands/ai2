@@ -99,6 +99,8 @@ export class OpenAICompatibleProvider implements AIProvider {
     let buffer = ''
     let usage: ChatResponse['usage'] | undefined
 
+    let isThinking = false
+
     try {
       while (true) {
         const { done, value } = await reader.read()
@@ -116,9 +118,26 @@ export class OpenAICompatibleProvider implements AIProvider {
             try {
               const parsed = JSON.parse(data)
               const delta = parsed.choices?.[0]?.delta?.content
-              if (delta) {
-                yield { content: delta, done: false }
+              const reasoning = parsed.choices?.[0]?.delta?.reasoning_content
+
+              if (reasoning) {
+                if (!isThinking) {
+                  isThinking = true
+                  yield { content: `<think>\n${reasoning}`, done: false }
+                } else {
+                  yield { content: reasoning, done: false }
+                }
               }
+
+              if (delta) {
+                if (isThinking) {
+                  isThinking = false
+                  yield { content: `\n</think>\n\n${delta}`, done: false }
+                } else {
+                  yield { content: delta, done: false }
+                }
+              }
+
               if (parsed.usage) {
                 usage = {
                   inputTokens: parsed.usage.prompt_tokens,
@@ -131,6 +150,10 @@ export class OpenAICompatibleProvider implements AIProvider {
             }
           }
         }
+      }
+
+      if (isThinking) {
+        yield { content: '\n</think>\n\n', done: false }
       }
 
       yield { content: '', done: true, usage }

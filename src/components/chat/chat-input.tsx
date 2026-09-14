@@ -13,14 +13,27 @@ interface ChatInputProps {
   isGenerating?: boolean
   placeholder?: string
   maxFiles?: number
+  statusText?: string
 }
 
-export function ChatInput({ onSend, onStop, disabled, isGenerating, placeholder = 'Message...', maxFiles = 5 }: ChatInputProps) {
+export function ChatInput({ onSend, onStop, disabled, isGenerating, placeholder = 'Message...', maxFiles = 5, statusText }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [text, setText] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [listening, setListening] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
   const recognitionRef = useRef<unknown>(null)
+
+  useEffect(() => {
+    if (!isGenerating) {
+      setElapsed(0)
+      return
+    }
+    const timer = setInterval(() => {
+      setElapsed((s) => s + 1)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [isGenerating])
 
   const toggleVoice = useCallback(() => {
     interface SpeechRecognitionCtor {
@@ -123,16 +136,42 @@ export function ChatInput({ onSend, onStop, disabled, isGenerating, placeholder 
     setFiles((prev) => prev.filter((_, i) => i !== index))
   }, [])
 
+  const getThinkingStep = (sec: number) => {
+    if (statusText) return statusText
+    if (sec < 2) return 'กำลังวิเคราะห์คำถามและบริบท...'
+    if (sec < 5) return 'กำลังค้นหาและประมวลผลข้อมูล...'
+    if (sec < 9) return 'กำลังเรียบเรียงและสรุปคำตอบ...'
+    return 'กำลังสร้างคำตอบอย่างละเอียด...'
+  }
+
   if (isGenerating && onStop) {
     return (
-      <div className="border-t border-border p-4" {...getRootProps()}>
-        <div className="flex items-center gap-2 max-w-4xl mx-auto">
-          <Button variant="outline" size="icon" className="h-9 w-9" onClick={onStop} disabled={disabled}>
-            <X className="h-4 w-4" />
+      <div className="border-t border-border p-3 sm:p-4 flex-shrink-0 bg-muted/20" {...getRootProps()}>
+        <div className="flex items-center gap-3 max-w-4xl mx-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:border-destructive transition-colors flex-shrink-0"
+            onClick={onStop}
+            disabled={disabled}
+            title="หยุดการสร้างคำตอบ"
+          >
+            <X className="h-3.5 w-3.5 mr-1" />
+            <span>หยุด</span>
           </Button>
-          <div className="flex-1 flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Generating response...</span>
+          <div className="flex-1 flex items-center gap-2.5 text-sm min-w-0">
+            <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
+            <div className="flex items-center gap-2 truncate">
+              <span className="font-medium text-foreground text-xs sm:text-sm truncate">
+                {getThinkingStep(elapsed)}
+              </span>
+              <span className="text-xs text-muted-foreground font-mono">({elapsed}s)</span>
+            </div>
+            <span className="inline-flex gap-1 items-center ml-auto flex-shrink-0">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary/70 animate-bounce [animation-delay:-0.3s]"></span>
+              <span className="h-1.5 w-1.5 rounded-full bg-primary/70 animate-bounce [animation-delay:-0.15s]"></span>
+              <span className="h-1.5 w-1.5 rounded-full bg-primary/70 animate-bounce"></span>
+            </span>
           </div>
         </div>
         {files.length > 0 && (

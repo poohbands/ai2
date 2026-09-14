@@ -624,6 +624,14 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
     )
   }
 
+  const activeStatusText = webSearch
+    ? 'กำลังค้นหาข้อมูลจากอินเทอร์เน็ต...'
+    : modeKb
+    ? 'กำลังค้นหาข้อมูลในคลังความรู้ (KB)...'
+    : modeResearch
+    ? 'กำลังค้นคว้าและวิเคราะห์เชิงลึก...'
+    : undefined
+
   return (
     <div className="flex h-screen bg-background">
       <MobileSidebarOverlay isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -769,6 +777,7 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
                   key={message.id}
                   message={message}
                   isStreaming={generating && message.id.startsWith('temp-')}
+                  statusText={activeStatusText}
                   onRegenerate={message.role === 'assistant' ? () => handleRegenerate(message.id) : undefined}
                   onEdit={message.role === 'user' ? (content) => handleEdit(message.id, content) : undefined}
                   onCopy={handleCopy}
@@ -783,6 +792,7 @@ export function ChatClient({ userId, profile }: ChatClientProps) {
             onStop={handleStop}
             disabled={generating}
             isGenerating={generating}
+            statusText={activeStatusText}
           />
         </main>
       </div>
